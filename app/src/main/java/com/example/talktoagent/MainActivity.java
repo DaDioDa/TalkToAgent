@@ -3,6 +3,10 @@ package com.example.talktoagent;
 import android.app.Activity;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
@@ -25,6 +29,11 @@ public final class MainActivity extends Activity {
     private Button talkButton;
     private EditText geminiKeyInput;
     private TextView voiceStatus;
+    private TextView readinessDot;
+    private TextView readinessLabel;
+    private TextView recentText;
+    private Button copyRecentButton;
+    private String knownFailure;
     private GeminiKeyStore keyStore;
     private GeminiLiveTranscriber recognition;
     private VoiceUtterance utterance;
@@ -47,6 +56,18 @@ public final class MainActivity extends Activity {
         content.setPadding(padding, padding, padding, padding);
         scrollView.addView(content);
         setContentView(scrollView);
+
+        LinearLayout readinessRow = new LinearLayout(this);
+        readinessRow.setOrientation(LinearLayout.HORIZONTAL);
+        readinessDot = new TextView(this);
+        readinessDot.setText("●  ");
+        readinessDot.setTextSize(22);
+        readinessRow.addView(readinessDot);
+        readinessLabel = new TextView(this);
+        readinessLabel.setTextSize(16);
+        readinessLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        readinessRow.addView(readinessLabel);
+        content.addView(readinessRow, fieldLayout());
 
         TextView heading = new TextView(this);
         heading.setText("按住說話 → Windows");
@@ -97,10 +118,13 @@ public final class MainActivity extends Activity {
             try {
                 keyStore.save(geminiKeyInput.getText().toString().trim());
                 geminiKeyInput.setText("");
+                knownFailure = null;
                 voiceStatus.setText(keyStore.read().isEmpty() ? "金鑰已清除" : "金鑰已儲存於手機");
             } catch (Exception failure) {
+                knownFailure = "無法安全儲存金鑰";
                 voiceStatus.setText("無法安全儲存金鑰；語音輸入不可用");
             }
+            refreshReadiness();
         });
 
         authenticateButton = new Button(this);
@@ -147,6 +171,24 @@ public final class MainActivity extends Activity {
         finalTextInput.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
         finalTextInput.setSaveEnabled(false);
 
+        TextView recentLabel = new TextView(this);
+        recentLabel.setText("最近一次口述定稿（僅在目前畫面暫留）");
+        content.addView(recentLabel, fieldLayout());
+        recentText = new TextView(this);
+        recentText.setText("尚無定稿");
+        recentText.setTextIsSelectable(true);
+        recentText.setSaveEnabled(false);
+        content.addView(recentText, fieldLayout());
+        copyRecentButton = new Button(this);
+        copyRecentButton.setText("手動複製最近定稿");
+        copyRecentButton.setEnabled(false);
+        copyRecentButton.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("口述定稿", recentText.getText()));
+            voiceStatus.setText("已手動複製最近定稿");
+        });
+        content.addView(copyRecentButton, fieldLayout());
+
         sendButton = new Button(this);
         sendButton.setText("傳送並貼上一次");
         sendButton.setEnabled(false);
@@ -154,6 +196,21 @@ public final class MainActivity extends Activity {
 
         authenticateButton.setOnClickListener(view -> authenticateReceiver());
         sendButton.setOnClickListener(view -> sendFinalText());
+        refreshReadiness();
+    }
+
+    private void refreshReadiness() {
+        if (readinessDot == null || readinessLabel == null) return;
+        InputReadiness.Display display = InputReadiness.evaluate(receiverAuthenticated,
+                !keyStore.read().isEmpty(),
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+                utterance.active(), knownFailure);
+        readinessDot.setTextColor(display.ready() ? Color.rgb(46, 125, 50)
+                : display.kind == InputReadiness.Kind.FAILED ? Color.rgb(176, 0, 32)
+                : display.kind == InputReadiness.Kind.BUSY ? Color.rgb(153, 85, 0)
+                : Color.DKGRAY);
+        readinessLabel.setText(display.label());
+        readinessDot.setContentDescription(display.label());
     }
 
     private void authenticateReceiver() {
@@ -167,7 +224,9 @@ public final class MainActivity extends Activity {
             transport = null;
         }
         receiverAuthenticated = false;
+        knownFailure = null;
         sendButton.setEnabled(false);
+        refreshReadiness();
 
         String ipAddress = ipAddressInput.getText().toString().trim();
         String pairingCode = pairingCodeInput.getText().toString();
@@ -194,6 +253,8 @@ public final class MainActivity extends Activity {
                         return;
                     }
                     receiverAuthenticated = true;
+                    knownFailure = null;
+                    refreshReadiness();
                     authenticateButton.setEnabled(true);
                     authenticateButton.setText("重新驗證 Windows Receiver");
                     sendButton.setEnabled(true);
@@ -222,6 +283,7 @@ public final class MainActivity extends Activity {
                         return;
                     }
                     receiverAuthenticated = false;
+                    refreshReadiness();
                     authenticateButton.setEnabled(true);
                     sendButton.setEnabled(false);
                     receiverStatus.setText(
@@ -251,7 +313,9 @@ public final class MainActivity extends Activity {
                         message = "連線失敗或結果不明；未自動重送。請先檢查 Windows 目標欄位。";
                     }
                     receiverStatus.setText(message);
+                    knownFailure = message;
                     utterance.fail(message);
+                    refreshReadiness();
                     if (recognition != null) { recognition.close(); recognition = null; }
                 });
             }
@@ -269,6 +333,7 @@ public final class MainActivity extends Activity {
         String finalText = finalTextInput.getText().toString();
         receiverAuthenticated = false;
         sendButton.setEnabled(false);
+        refreshReadiness();
         receiverStatus.setText(
                 "已送出一次，等待 Receiver 確認；不會自動重送。"
         );
@@ -280,6 +345,7 @@ public final class MainActivity extends Activity {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             voiceStatus.setText("需要麥克風權限；本次未收音，授權後請重新按住說話");
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+            refreshReadiness();
             return;
         }
         String key = keyStore.read();
@@ -287,37 +353,58 @@ public final class MainActivity extends Activity {
             voiceStatus.setText("請先儲存 Gemini 金鑰，未收音或傳送");
             return;
         }
-        if (!utterance.press(true, receiverAuthenticated)) return;
+        if (!utterance.press(true, receiverAuthenticated)) { refreshReadiness(); return; }
+        knownFailure = null;
+        refreshReadiness();
         talkButton.setPressed(true);
         voiceStatus.setText("正在連接 Gemini，尚未開始收音");
         recognition = new GeminiLiveTranscriber(key, new GeminiLiveTranscriber.Listener() {
             @Override public void onStage(String stage) { voiceStatus.setText(stage); }
             @Override public void onInterim(String text) { utterance.interim(text); }
-            @Override public void onFinal(String text) { utterance.finalText(text); recognition = null; }
-            @Override public void onError(String reason) { utterance.fail(reason); recognition = null; }
+            @Override public void onFinal(String text) {
+                utterance.finalText(text);
+                if (receiverAuthenticated) knownFailure = voiceStatus.getText().toString();
+                refreshReadiness();
+                recognition = null;
+            }
+            @Override public void onError(String reason) {
+                utterance.fail(reason);
+                knownFailure = reason;
+                refreshReadiness();
+                recognition = null;
+            }
         });
     }
 
     private void releaseToTalk() {
         talkButton.setPressed(false);
         if (utterance.release() && recognition != null) recognition.release();
+        refreshReadiness();
     }
 
     private void cancelVoice() {
         talkButton.setPressed(false);
-        utterance.fail("操作已取消，未傳送");
+        if (utterance.active()) {
+            utterance.fail("操作已取消，未傳送");
+            knownFailure = "操作已取消，未傳送";
+        }
         if (recognition != null) { recognition.close(); recognition = null; }
+        refreshReadiness();
     }
 
     private void deliverVoiceFinal(String text) {
-        // The same one-shot authenticated socket used by the manual demonstration.
+        // Keep only the current on-screen final, even if delivery fails; never queue a retry.
+        recentText.setText(text);
+        copyRecentButton.setEnabled(true);
         if (!receiverAuthenticated || transport == null) {
-            voiceStatus.setText("Receiver 已失去驗證，未傳送");
+            knownFailure = "Receiver 已失去驗證，未傳送";
+            voiceStatus.setText(knownFailure);
+            refreshReadiness();
             return;
         }
         receiverAuthenticated = false;
         sendButton.setEnabled(false);
-        finalTextInput.setText(text);
+        refreshReadiness();
         transport.sendFinalText(text);
     }
 
@@ -327,14 +414,17 @@ public final class MainActivity extends Activity {
             voiceStatus.setText(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED
                     ? "已允許麥克風；請重新按住說話（本次沒有收音）"
                     : "麥克風權限遭拒，未收音或傳送；請在系統設定允許後重試");
+            refreshReadiness();
         }
     }
 
     private void showAuthenticationFailure(String message) {
         receiverAuthenticated = false;
+        knownFailure = message;
         authenticateButton.setEnabled(true);
         sendButton.setEnabled(false);
         receiverStatus.setText(message);
+        refreshReadiness();
     }
 
     private EditText addField(
@@ -371,9 +461,15 @@ public final class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        refreshReadiness();
+    }
+
     @Override protected void onPause() {
         super.onPause();
         if (utterance.active()) cancelVoice();
+        refreshReadiness();
     }
 
     @Override
