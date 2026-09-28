@@ -13,12 +13,14 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
+import okio.ByteString;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A single press-only Gemini 3.5 Transcribe Live SMART session. Never forwards audio to Receiver. */
 final class GeminiLiveTranscriber {
     interface Listener {
+        void onStage(String stage);
         void onInterim(String text);
         void onFinal(String text);
         void onError(String reason);
@@ -33,6 +35,8 @@ final class GeminiLiveTranscriber {
     private volatile boolean released;
     private volatile boolean endSent;
     private volatile boolean finished;
+    // Only non-secret connection phases are shown; never expose URLs or response bodies.
+    private volatile String connectionStage = "建立 WebSocket";
     private final FinalTranscript transcript = new FinalTranscript();
     private final Runnable timeout = () -> {
         // At the deadline, the quiet window can expire at exactly the same time.
@@ -53,23 +57,36 @@ final class GeminiLiveTranscriber {
                 + android.net.Uri.encode(key);
         socket = client.newWebSocket(new Request.Builder().url(url).build(), new WebSocketListener() {
             @Override public void onOpen(WebSocket webSocket, Response response) {
-                webSocket.send("{\"setup\":{\"model\":\"models/gemini-3.5-transcribe-live\","
+                connectionStage = "WebSocket 已連線，等待設定完成";
+                String stage = connectionStage;
+                main.post(() -> { if (!finished) listener.onStage(stage); });
+                if (!webSocket.send("{\"setup\":{\"model\":\"models/gemini-3.5-transcribe-live\","
                         + "\"generationConfig\":{\"responseModalities\":[\"TEXT\"]},"
                         + "\"realtimeInputConfig\":{\"automaticActivityDetection\":{\"disabled\":true}},"
-                        + "\"inputAudioTranscription\":{\"mode\":\"SMART\",\"languageCodes\":[]}}}");
+                        + "\"inputAudioTranscription\":{\"mode\":\"SMART\",\"languageCodes\":[]}}}")) {
+                    main.post(() -> finishError("Gemini 設定訊息未能傳送，未收音"));
+                }
             }
             @Override public void onMessage(WebSocket webSocket, String text) {
                 main.post(() -> receive(text));
             }
+            @Override public void onMessage(WebSocket webSocket, ByteString bytes) {
+                // Gemini can send UTF-8 JSON in a binary WebSocket frame.
+                main.post(() -> receive(bytes.utf8()));
+            }
             @Override public void onFailure(WebSocket webSocket, Throwable error, Response response) {
-                main.post(() -> finishError("Gemini 連線或辨識失敗，未傳送（請檢查金鑰與網路）"));
+                // HTTP status and exception type are safe diagnostics; never show the URL or error message.
+                String reason = response == null ? error.getClass().getSimpleName()
+                        : "HTTP " + response.code();
+                main.post(() -> finishError("Gemini 連線失敗（" + reason + "），未傳送"));
             }
             @Override public void onClosed(WebSocket webSocket, int code, String reason) {
-                main.post(() -> finishError("Gemini 連線已關閉，未取得定稿"));
+                main.post(() -> finishError("Gemini 連線已關閉（WebSocket " + code + "），未取得定稿"));
             }
         });
         main.postDelayed(() -> {
-            if (!finished && recorder == null && !released) finishError("Gemini 連線等待逾時，未收音");
+            if (!finished && recorder == null && !released)
+                finishError("Gemini 初始化逾時（" + connectionStage + "），未收音");
         }, 10000);
         main.postDelayed(captureLimit, 45000);
     }
@@ -78,12 +95,28 @@ final class GeminiLiveTranscriber {
         if (finished) return;
         try {
             JSONObject response = new JSONObject(text);
+            JSONObject error = response.optJSONObject("error");
+            if (error != null) {
+                String status = error.optString("status", "");
+                if (!status.matches("[A-Z_]{1,32}")) status = "UNKNOWN";
+                finishError("Gemini 設定遭拒（code " + error.optInt("code", -1)
+                        + ", status " + status + "），未收音");
+                return;
+            }
             if (response.has("setupComplete")) {
+                connectionStage = "設定完成，啟動麥克風";
+                listener.onStage(connectionStage);
                 if (!released) startAudio();
                 return;
             }
             JSONObject content = response.optJSONObject("serverContent");
-            if (content == null) return;
+            if (content == null) {
+                if (recorder == null && !released) {
+                    connectionStage = "收到其他 Gemini 回覆，仍等待設定完成";
+                    listener.onStage(connectionStage);
+                }
+                return;
+            }
             JSONObject interim = content.optJSONObject("interimInputTranscription");
             if (interim != null && !released) listener.onInterim(interim.optString("text", ""));
             JSONObject actual = content.optJSONObject("inputTranscription");
@@ -108,6 +141,8 @@ final class GeminiLiveTranscriber {
             }
             recorder = audio;
             audio.startRecording();
+            connectionStage = "收音中，正在辨識";
+            listener.onStage(connectionStage);
             socket.send("{\"realtimeInput\":{\"activityStart\":{}}}");
             Thread worker = new Thread(() -> {
                 byte[] chunk = new byte[3200]; // 100ms of 16kHz, mono, 16-bit PCM.

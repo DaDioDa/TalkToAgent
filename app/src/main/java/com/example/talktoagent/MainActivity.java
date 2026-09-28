@@ -288,7 +288,9 @@ public final class MainActivity extends Activity {
         }
         if (!utterance.press(true, receiverAuthenticated)) return;
         talkButton.setPressed(true);
+        voiceStatus.setText("正在連接 Gemini，尚未開始收音");
         recognition = new GeminiLiveTranscriber(key, new GeminiLiveTranscriber.Listener() {
+            @Override public void onStage(String stage) { voiceStatus.setText(stage); }
             @Override public void onInterim(String text) { utterance.interim(text); }
             @Override public void onFinal(String text) { utterance.finalText(text); recognition = null; }
             @Override public void onError(String reason) { utterance.fail(reason); recognition = null; }
