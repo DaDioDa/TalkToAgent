@@ -4,13 +4,14 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public class VoiceUtteranceTest {
     private final List<String> sent = new ArrayList<>();
     private final List<String> states = new ArrayList<>();
     // The delivery seam encodes exactly the frame consumed by the existing authenticated Receiver.
     private final VoiceUtterance utterance = new VoiceUtterance(
-            text -> sent.add(ManualTextProtocol.finalText(text)), states::add);
+            text -> sent.add(ManualTextProtocol.finalText(text)), states::add, Function.identity());
 
     @Test public void provisionalRevisionNeverPastesButFinalAfterReleaseDoesOnce() {
         assertTrue(utterance.press(true, true));
@@ -55,6 +56,26 @@ public class VoiceUtteranceTest {
         utterance.release();
         utterance.finalText("完整定稿");
         assertEquals(List.of("{\"type\":\"final_text\",\"text\":\"完整定稿\"}"), sent);
+    }
+
+    @Test public void conversionFailureOrOversizedResultNeverSends() {
+        List<String> delivered = new ArrayList<>();
+        List<String> updates = new ArrayList<>();
+        VoiceUtterance failed = new VoiceUtterance(delivered::add, updates::add,
+                text -> { throw new IllegalStateException("sensitive text"); });
+        failed.press(true, true);
+        failed.release();
+        failed.finalText("測試");
+        assertTrue(delivered.isEmpty());
+        assertEquals("繁體轉換失敗，未傳送", updates.get(updates.size() - 1));
+
+        VoiceUtterance oversized = new VoiceUtterance(delivered::add, updates::add,
+                text -> "測".repeat(1500));
+        oversized.press(true, true);
+        oversized.release();
+        oversized.finalText("测试");
+        assertTrue(delivered.isEmpty());
+        assertEquals("轉換後定稿為空或超限，未傳送", updates.get(updates.size() - 1));
     }
 
     @Test public void failureAndCancelledRecordingNeverSend() {
