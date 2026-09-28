@@ -37,7 +37,8 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setTitle("TalkToAgent 按住說話");
         keyStore = new GeminiKeyStore(this);
-        utterance = new VoiceUtterance(this::deliverVoiceFinal, message -> voiceStatus.setText(message));
+        utterance = new VoiceUtterance(this::deliverVoiceFinal,
+                message -> voiceStatus.setText(message), TraditionalText::convert);
 
         ScrollView scrollView = new ScrollView(this);
         LinearLayout content = new LinearLayout(this);

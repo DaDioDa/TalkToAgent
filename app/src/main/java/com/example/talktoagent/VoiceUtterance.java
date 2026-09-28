@@ -1,6 +1,7 @@
 package com.example.talktoagent;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /** One press/release transaction; only a finalized event after release can leave this boundary. */
 final class VoiceUtterance {
@@ -8,10 +9,13 @@ final class VoiceUtterance {
     private Phase phase = Phase.IDLE;
     private final Consumer<String> delivery;
     private final Consumer<String> status;
+    private final Function<String, String> finalizeText;
 
-    VoiceUtterance(Consumer<String> delivery, Consumer<String> status) {
+    VoiceUtterance(Consumer<String> delivery, Consumer<String> status,
+                   Function<String, String> finalizeText) {
         this.delivery = delivery;
         this.status = status;
+        this.finalizeText = finalizeText;
     }
 
     boolean press(boolean permission, boolean receiverReady) {
@@ -41,8 +45,19 @@ final class VoiceUtterance {
             status.accept("定稿為空或超限，未傳送");
             return;
         }
+        final String converted;
+        try {
+            converted = finalizeText.apply(text);
+        } catch (RuntimeException failure) {
+            status.accept("繁體轉換失敗，未傳送");
+            return;
+        }
+        if (!ManualTextProtocol.isValidFinalText(converted)) {
+            status.accept("轉換後定稿為空或超限，未傳送");
+            return;
+        }
         status.accept("定稿已送出一次，等待 Receiver 確認");
-        delivery.accept(text);
+        delivery.accept(converted);
     }
 
     void timeout() { fail("等待轉錄定稿逾時，未傳送"); }
