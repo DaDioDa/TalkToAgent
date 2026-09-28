@@ -78,6 +78,20 @@ public class VoiceUtteranceTest {
         assertEquals("轉換後定稿為空或超限，未傳送", updates.get(updates.size() - 1));
     }
 
+    @Test public void reconnectAfterFailureNeverReplaysOldFinal() {
+        utterance.press(true, true);
+        utterance.interim("舊暫定");
+        utterance.release();
+        utterance.fail("傳送結果不明，未自動重送");
+        utterance.finalText("舊定稿");
+        assertTrue(sent.isEmpty());
+        assertTrue(utterance.press(true, true));
+        assertTrue(sent.isEmpty());
+        utterance.release();
+        utterance.finalText("新定稿");
+        assertEquals(List.of(ManualTextProtocol.finalText("新定稿")), sent);
+    }
+
     @Test public void failureAndCancelledRecordingNeverSend() {
         utterance.press(true, true);
         utterance.finalText("先前停頓");
