@@ -10,6 +10,8 @@
 .DS_Store
 .env
 /build
+/windows_receiver/.venv/
+__pycache__/
 /captures
 .externalNativeBuild
 .cxx
