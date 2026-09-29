@@ -40,13 +40,16 @@ public final class BluetoothConnectionService extends Service {
     }
     void observe(Observer value) { observer = value; publish(); }
     void connect(BluetoothDevice selected, String pairingCode) {
+        boolean uncertain = outcomeUnknown || pending;
         disconnectConnection();
         device = selected;
         code = pairingCode;
         running = true;
-        outcomeUnknown = false;
+        outcomeUnknown = uncertain;
         retrySeconds = 2;
-        status = "正在連接藍牙 Receiver…";
+        status = uncertain
+                ? "上一筆輸入結果不明；先檢查電腦再決定是否重送；正在重新連線"
+                : "正在連接藍牙 Receiver…";
         startForeground(1, notification());
         publish();
         attempt();
@@ -81,7 +84,12 @@ public final class BluetoothConnectionService extends Service {
                 if (attempt != generation) return;
                 pending = false;
                 outcomeUnknown = false;
-                status = "Receiver 拒絕輸入：" + error + "；未自動重送";
+                if ("session_locked".equals(error)) {
+                    ready = false;
+                    status = "Windows 已鎖定或無法輸入；請解鎖後重新連線，未自動補送";
+                } else {
+                    status = "Receiver 拒絕輸入：" + error + "；未自動重送";
+                }
                 publish();
             }); }
             @Override public void disconnected(String unknownId) { main.post(() -> {
