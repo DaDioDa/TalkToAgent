@@ -58,7 +58,11 @@ class BluetoothTests(unittest.TestCase):
         connection = FakeConnection(source.getvalue())
         pasted = []
         unlocked = iter([False, True])
-        serve_client(connection, 'device', 'secret', pasted.append, lambda: next(unlocked))
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'LOCALAPPDATA': directory}):
+            serve_client(connection, 'AA:BB:CC:DD:EE:FF', 'secret', pasted.append,
+                         lambda: next(unlocked), approve=lambda _: True)
         connection.output.seek(0)
         self.assertEqual([read_message(connection.output) for _ in range(4)], [
             {'type': 'authenticated'},
@@ -66,6 +70,56 @@ class BluetoothTests(unittest.TestCase):
             {'type': 'error', 'id': '1', 'code': 'duplicate_operation'},
             {'type': 'pasted', 'id': '2'}])
         self.assertEqual(pasted, ['test'])
+
+    def test_pinning_and_idle(self):
+        from bluetooth import serve_client, write_message, read_message, forget_bluetooth_device
+        from unittest.mock import patch
+        import io, tempfile
+        from pathlib import Path
+        class Connection:
+            def __init__(self):
+                source = io.BytesIO()
+                write_message(source, {'type': 'authenticate', 'pairingCode': 'secret'})
+                write_message(source, {'type': 'final_text', 'id': '1', 'text': 'hello'})
+                self.source, self.output = io.BytesIO(source.getvalue()), io.BytesIO()
+                self.timeouts = []
+            def settimeout(self, value): self.timeouts.append(value)
+            def makefile(self, *args, **kwargs):
+                outer = self
+                class View:
+                    def __enter__(self): return self
+                    def __exit__(self, *args): pass
+                    def read(self, count): return outer.source.read(count)
+                    def write(self, data): return outer.output.write(data)
+                    def flush(self): pass
+                return View()
+            def replies(self):
+                self.output.seek(0)
+                result = []
+                try:
+                    while True: result.append(read_message(self.output))
+                except EOFError: return result
+        with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'LOCALAPPDATA': directory}):
+            first = Connection()
+            # Windows RFCOMM accept() returns (Bluetooth address, channel).
+            serve_client(first, ('AA:BB:CC:DD:EE:FF', 7), 'secret', lambda text: None,
+                         lambda: True, approve=lambda peer: True)
+            self.assertEqual(first.replies()[0], {'type': 'authenticated'})
+            self.assertEqual(first.timeouts, [10, None])
+            saved = Path(directory, 'TalkToAgent', 'bluetooth-device.json')
+            self.assertEqual(json.loads(saved.read_text()), {'address': 'AA:BB:CC:DD:EE:FF'})
+            for peer, expected in [('11:22:33:44:55:66', 'authentication_failed'),
+                                   ('AA:BB:CC:DD:EE:FF', 'authenticated')]:
+                connection = Connection()
+                serve_client(connection, (peer, 7), 'secret', lambda text: None, lambda: True,
+                             approve=lambda _: self.fail('unexpected consent'))
+                self.assertEqual(connection.replies()[0]['type'], expected)
+            forget_bluetooth_device()
+            self.assertFalse(saved.exists())
+            denied = Connection()
+            serve_client(denied, ('AA:BB:CC:DD:EE:FF', 7), 'secret', lambda text: None,
+                         lambda: True, approve=lambda _: False)
+            self.assertEqual(denied.replies(), [{'type': 'authentication_failed'}])
 
     def test_listener_security_failure_closes_socket(self):
         from bluetooth import open_listener
@@ -80,6 +134,28 @@ class BluetoothTests(unittest.TestCase):
             with self.assertRaisesRegex(OSError, 'security unavailable'):
                 open_listener(lambda *args: sock)
         self.assertTrue(sock.closed)
+
+    def test_listener_requests_server_channel_auto_allocation(self):
+        from bluetooth import open_listener
+        from unittest.mock import patch
+        class Socket:
+            def setsockopt(self, *args): pass
+            def bind(self, address):
+                self.address = address
+            def close(self): pass
+        sock = Socket()
+        with patch('bluetooth.sys.platform', 'win32'):
+            self.assertIs(open_listener(lambda *args: sock), sock)
+        # Windows port 0 is a client endpoint; BT_PORT_ANY allocates a server channel.
+        self.assertEqual(sock.address, ('00:00:00:00:00:00', 0xffffffff))
+
+    def test_sdp_sockaddr_uses_windows_bluetooth_wire_layout(self):
+        from bluetooth import SOCKADDR_BTH
+        import ctypes
+        self.assertEqual(ctypes.sizeof(SOCKADDR_BTH), 30)
+        self.assertEqual(SOCKADDR_BTH.btAddr.offset, 2)
+        self.assertEqual(SOCKADDR_BTH.serviceClassId.offset, 10)
+        self.assertEqual(SOCKADDR_BTH.port.offset, 26)
 
     def test_sdp_registration_failure_closes_before_accept(self):
         from bluetooth import run_bluetooth, register_rfcomm_service
@@ -136,7 +212,7 @@ class BluetoothTests(unittest.TestCase):
         self.assertEqual(events[0], 'listen')
         for index, operation in ((1, 0), (3, 2)):
             self.assertEqual(events[index], ('set', operation, 0, 120, 16, 1,
-                'TalkToAgent', uuid.UUID(SERVICE_UUID), 40, 32,
+                'TalkToAgent', uuid.UUID(SERVICE_UUID), 30, 32,
                 0x0123456789ab, 23, 1, 3))
         self.assertEqual(events[2], 'accept')
         self.assertEqual(events[4], 'close')

@@ -32,6 +32,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 public final class MainActivity extends Activity {
+    private static final int CHANNEL_WIFI = 0;
+    private static final int CHANNEL_BLUETOOTH = 1;
     private Spinner channelInput;
     private int selectedChannel;
     private Spinner deviceInput;
@@ -124,7 +126,8 @@ public final class MainActivity extends Activity {
         channelInput.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
                 new String[]{"Wi-Fi（可信任家庭區網）", "藍牙（已系統配對）"}));
         content.addView(channelInput, fieldLayout());
-        selectedChannel = savedInstanceState == null ? 0 : savedInstanceState.getInt("channel", 0);
+        selectedChannel = savedInstanceState == null ? CHANNEL_WIFI
+                : savedInstanceState.getInt("channel", CHANNEL_WIFI);
         channelInput.setSelection(selectedChannel);
         deviceInput = new Spinner(this);
         content.addView(deviceInput, fieldLayout());
@@ -287,7 +290,9 @@ public final class MainActivity extends Activity {
         startService(new Intent(this, BluetoothConnectionService.class).setAction(BluetoothConnectionService.DISCONNECT));
     }
 
-    private boolean bluetoothSelected() { return channelInput != null && channelInput.getSelectedItemPosition() == 1; }
+    private boolean bluetoothSelected() {
+        return channelInput != null && channelInput.getSelectedItemPosition() == CHANNEL_BLUETOOTH;
+    }
 
     private void listPairedDevices() {
         if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

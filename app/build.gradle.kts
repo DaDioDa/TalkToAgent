@@ -19,6 +19,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Opt-in test install alongside an existing differently signed production app.
+            if (providers.gradleProperty("bluetoothTestApp").orNull == "true") {
+                applicationIdSuffix = ".bluetoothdebug"
+                versionNameSuffix = "-bluetooth-debug"
+            }
+        }
         release {
             optimization {
                 enable = false

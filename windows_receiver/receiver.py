@@ -271,9 +271,20 @@ def main() -> None:
     )
     parser.add_argument('--bluetooth', action='store_true',
                         help='Attempt guarded RFCOMM startup (fails closed without SDP registration)')
+    parser.add_argument('--forget-bluetooth-device', action='store_true',
+                        help='Revoke the authorized Bluetooth phone and exit')
     arguments = parser.parse_args()
     if not 1 <= arguments.port <= 65535:
         parser.error("--port must be between 1 and 65535")
+
+    if arguments.forget_bluetooth_device:
+        from bluetooth import forget_bluetooth_device
+        try:
+            forget_bluetooth_device()
+        except OSError as exc:
+            parser.exit(1, f'Bluetooth revocation failed: {exc}')
+        print('Bluetooth device authorization revoked.')
+        return
 
     pairing_code = secrets.token_urlsafe(18)
     paste_action = WindowsPasteAction()

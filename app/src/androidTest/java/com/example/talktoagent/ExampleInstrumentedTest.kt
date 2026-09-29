@@ -19,6 +19,12 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.example.talktoagent", appContext.packageName)
+        assertTrue(
+            appContext.packageName,
+            appContext.packageName in setOf(
+                "com.example.talktoagent",
+                "com.example.talktoagent.bluetoothdebug"
+            )
+        )
     }
 }

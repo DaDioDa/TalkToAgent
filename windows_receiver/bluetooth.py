@@ -1,5 +1,9 @@
 """Fail-closed Windows RFCOMM transport and framed Bluetooth protocol."""
 import hmac
+import os
+import re
+import tempfile
+from pathlib import Path
 import json
 import socket
 import struct
@@ -107,6 +111,7 @@ def authenticate(message, expected_code):
 SOL_RFCOMM = 3
 SO_BTH_AUTHENTICATE = -2147483647
 SO_BTH_ENCRYPT = 2
+BT_PORT_ANY = 0xffffffff  # Windows reserves a server channel; port 0 is client-only.
 
 
 def session_unlocked():
@@ -146,17 +151,91 @@ def session_unlocked():
         return False
 
 
-def serve_client(connection, address, pairing_code, paste, unlocked=session_unlocked):
+def _authorization_path():
+    root = os.environ.get('LOCALAPPDATA')
+    if not root:
+        raise OSError('LOCALAPPDATA is unavailable')
+    return Path(root) / 'TalkToAgent' / 'bluetooth-device.json'
+
+
+def _pinned_device():
+    path = _authorization_path()
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return None
+    if not isinstance(data, dict) or set(data) != {'address'} or not _valid_address(data['address']):
+        raise ValueError('invalid Bluetooth authorization')
+    return data['address']
+
+
+def _valid_address(address):
+    return isinstance(address, str) and re.fullmatch(r'[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}', address) is not None
+
+
+def _approve_device(address):
+    if not sys.stdin.isatty():
+        return False
+    try:
+        return input(f'Authorize Bluetooth device {address} for text input? Type yes: ').strip().lower() == 'yes'
+    except (EOFError, OSError):
+        return False
+
+
+def _authorize_device(address, approve):
+    if not _valid_address(address):
+        return False
+    address = address.upper()
+    pinned = _pinned_device()
+    if pinned is not None:
+        return pinned.upper() == address
+    if not approve(address):
+        return False
+    path = _authorization_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+                                         prefix='.bluetooth-', delete=False) as stream:
+            temporary = stream.name
+            json.dump({'address': address}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
+    return True
+
+
+def forget_bluetooth_device():
+    _authorization_path().unlink(missing_ok=True)
+
+
+def serve_client(connection, address, pairing_code, paste, unlocked=session_unlocked, approve=_approve_device):
     """One authenticated connection. An ID is never retried on this connection."""
     connection.settimeout(10)
+    # Python's RFCOMM accept() returns a (Bluetooth address, channel) pair.
+    peer = address[0] if isinstance(address, tuple) and len(address) == 2 else address
     with connection.makefile('rwb', buffering=0) as stream:
         try:
             answer = authenticate(read_message(stream), pairing_code)
+            if answer['type'] == 'authenticated':
+                try:
+                    if not _authorize_device(peer, approve):
+                        answer = {'type': 'authentication_failed'}
+                except (OSError, ValueError, TypeError):
+                    answer = {'type': 'authentication_failed'}
             write_message(stream, answer)
             if answer['type'] != 'authenticated':
                 return
-            connection.settimeout(60)
-            session = BluetoothSession(address, lambda _: True, unlocked, paste)
+            connection.settimeout(None)  # Keep the session usable after 30 minutes idle.
+            def authorized(device):
+                try:
+                    return _valid_address(device) and _pinned_device().upper() == device.upper()
+                except (OSError, ValueError, TypeError, AttributeError):
+                    return False
+            session = BluetoothSession(peer, authorized, unlocked, paste)
             while True:
                 write_message(stream, session.receive(read_message(stream)))
         except (EOFError, OSError, ValueError):
@@ -171,15 +250,16 @@ def open_listener(socket_factory=socket.socket):
     try:
         for option in (SO_BTH_AUTHENTICATE, SO_BTH_ENCRYPT):
             listener.setsockopt(SOL_RFCOMM, option, struct.pack('I', 1))
-        listener.bind(('00:00:00:00:00:00', 0))
+        listener.bind(('00:00:00:00:00:00', BT_PORT_ANY))
         return listener
     except BaseException:
         listener.close()
         raise
 
 
-# Winsock2.h / ws2bth.h: use native alignment (in particular, 8-byte pointers
-# and BTH_ADDR on x64). No raw SDP blob: NS_BTH builds the record from CSADDR_INFO.
+# Winsock2.h uses native alignment for pointer-bearing WSAQUERYSETW / CSADDR_INFO.
+# ws2bth.h packs SOCKADDR_BTH to 1-byte alignment (30 bytes on Windows).
+# NS_BTH builds the SDP record from CSADDR_INFO; no raw SDP blob is required.
 class GUID(ctypes.Structure):
     _fields_ = [('Data1', wintypes.DWORD), ('Data2', wintypes.WORD),
                 ('Data3', wintypes.WORD), ('Data4', ctypes.c_ubyte * 8)]
@@ -189,6 +269,7 @@ class GUID(ctypes.Structure):
 
 
 class SOCKADDR_BTH(ctypes.Structure):
+    _pack_ = 1
     _fields_ = [('addressFamily', wintypes.WORD), ('btAddr', ctypes.c_uint64),
                 ('serviceClassId', GUID), ('port', wintypes.DWORD)]
 
