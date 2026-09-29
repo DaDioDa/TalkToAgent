@@ -269,6 +269,8 @@ def main() -> None:
     parser.add_argument(
         "--port", type=int, default=8765, help="WebSocket listen port (default: 8765)"
     )
+    parser.add_argument('--bluetooth', action='store_true',
+                        help='Attempt guarded RFCOMM startup (fails closed without SDP registration)')
     arguments = parser.parse_args()
     if not 1 <= arguments.port <= 65535:
         parser.error("--port must be between 1 and 65535")
@@ -276,7 +278,13 @@ def main() -> None:
     pairing_code = secrets.token_urlsafe(18)
     paste_action = WindowsPasteAction()
     try:
-        asyncio.run(run_receiver(arguments.port, pairing_code, paste_action))
+        if arguments.bluetooth:
+            from bluetooth import run_bluetooth
+            run_bluetooth(pairing_code, paste_action.paste)
+        else:
+            asyncio.run(run_receiver(arguments.port, pairing_code, paste_action))
+    except (OSError, RuntimeError) as exc:
+        parser.exit(1, f'Bluetooth startup failed: {exc}\n')
     except KeyboardInterrupt:
         print("Receiver stopped.")
 

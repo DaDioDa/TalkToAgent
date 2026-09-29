@@ -76,3 +76,47 @@
 - 驗證後只接受一個格式完全符合 `{"type":"final_text","text":"…"}` 的 frame。完成剪貼簿與 Ctrl+V 動作後回覆 `{"type":"pasted"}`；無效請求回覆 `{"type":"error","code":"invalid_message"}`，貼上動作失敗回覆 `{"type":"error","code":"paste_failed"}`。接著關閉連線。
 
 此 Receiver 不保存或記錄定稿文字。未設定 Gemini 的手動示範不代表語音輸入已可用，也不會顯示整體「輸入就緒」。
+
+## Bluetooth implementation status (not ready for use)
+
+`python receiver.py --bluetooth` attempts a guarded RFCOMM startup. It sets
+mandatory Windows link authentication/encryption socket options before binding;
+option errors abort startup. After binding to an assigned channel and listening,
+it registers an SDP record for UUID `9c8f8513-7d4d-4a70-82c7-11e1da28a041`
+via Windows `WSASetServiceW` (`NS_BTH`, `RNRSERVICE_REGISTER`). Registration
+failure closes the socket without accepting clients. On exit, it removes that
+record with `RNRSERVICE_DELETE`; removal errors are surfaced. The default
+Wi-Fi/WebSocket mode is unchanged. There is no persistent credential: the
+ephemeral console-generated code expires when the process stops (Ctrl+C).
+
+Run the isolated tests with `cd windows_receiver; python -m unittest test_bluetooth -v`.
+Unit tests with an injected Winsock function verify the bound channel, SDP
+registration/removal and fail-closed listener behavior; other tests exercise
+framed authentication before text, per-ID ACKs, duplicate rejection and
+desktop-lock checks. **No SDP registration or phone interoperability has been
+verified on real hardware.** Do not advertise Bluetooth as available until
+adapter binding, SDP registration, pairing and phone interoperability are tested.
+
+The SDP implementation follows Microsoft documentation for
+[Bluetooth service set values](https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-and-wsaqueryset-for-set-service),
+[Bluetooth registration and deletion](https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-and-wsasetservice),
+[WSAQUERYSETW](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/ns-winsock2-wsaquerysetw),
+[CSADDR_INFO](https://learn.microsoft.com/en-us/windows/win32/api/nspapi/ns-nspapi-csaddr_info),
+[SOCKADDR_BTH](https://learn.microsoft.com/en-us/windows/win32/api/ws2bth/ns-ws2bth-sockaddr_bth)
+and [WSASetServiceW](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsasetservicew).
+
+
+On this Windows host (Python 3.14), the RFCOMM socket can be created and both
+Windows security options can be set, but binding the wildcard adapter address
+fails with Winsock **10050 (WSAENETDOWN)** despite the Intel Bluetooth adapter
+appearing `OK` in Device Manager. Reproduce in PowerShell:
+
+```powershell
+python -c "import socket,struct; s=socket.socket(socket.AF_BLUETOOTH,socket.SOCK_STREAM,socket.BTPROTO_RFCOMM); s.setsockopt(3,-2147483647,struct.pack('I',1)); s.setsockopt(3,2,struct.pack('I',1)); s.bind(('00:00:00:00:00:00',0)); print(s.getsockname())"
+```
+
+The constants above are `SOL_RFCOMM=3`, `SO_BTH_AUTHENTICATE=0x80000001`
+(signed Python argument `-2147483647`), and `SO_BTH_ENCRYPT=2` from
+Microsoft's `ws2bth.h`. Until adapter binding, live SDP registration, Windows session-lock enforcement
+and explicit revocable authorization are verified, there is no validated
+Bluetooth CLI. No phone interoperability has been tested.

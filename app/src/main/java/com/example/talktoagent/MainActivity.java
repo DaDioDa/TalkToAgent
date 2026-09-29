@@ -1,6 +1,19 @@
 package com.example.talktoagent;
 
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.content.Intent;
+import android.content.ComponentName;
+import android.content.ServiceConnection;
+import android.os.IBinder;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+import java.util.ArrayList;
+import java.util.List;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.ClipData;
@@ -19,6 +32,30 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 public final class MainActivity extends Activity {
+    private Spinner channelInput;
+    private int selectedChannel;
+    private Spinner deviceInput;
+    private final List<BluetoothDevice> pairedDevices = new ArrayList<>();
+    private BluetoothConnectionService bluetooth;
+    private boolean bluetoothPending;
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override public void onServiceConnected(ComponentName name, IBinder binder) {
+            bluetooth = ((BluetoothConnectionService.LocalBinder) binder).service();
+            bluetooth.observe((ready, pending, status) -> {
+                if (!bluetoothSelected()) return;
+                receiverAuthenticated = ready;
+                bluetoothPending = pending;
+                receiverStatus.setText(status);
+                sendButton.setEnabled(ready && !pending);
+                refreshReadiness();
+            });
+        }
+        @Override public void onServiceDisconnected(ComponentName name) {
+            bluetooth = null;
+            receiverAuthenticated = false;
+            refreshReadiness();
+        }
+    };
     private EditText ipAddressInput;
     private EditText portInput;
     private EditText pairingCodeInput;
@@ -36,6 +73,7 @@ public final class MainActivity extends Activity {
     private String knownFailure;
     private GeminiKeyStore keyStore;
     private GeminiLiveTranscriber recognition;
+    private int voiceGeneration;
     private VoiceUtterance utterance;
     private FinalTextTransport transport;
     private boolean receiverAuthenticated;
@@ -82,6 +120,37 @@ public final class MainActivity extends Activity {
         scopeNotice.setTextSize(14);
         content.addView(scopeNotice, fieldLayout());
 
+        channelInput = new Spinner(this);
+        channelInput.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"Wi-Fi（可信任家庭區網）", "藍牙（已系統配對）"}));
+        content.addView(channelInput, fieldLayout());
+        selectedChannel = savedInstanceState == null ? 0 : savedInstanceState.getInt("channel", 0);
+        channelInput.setSelection(selectedChannel);
+        deviceInput = new Spinner(this);
+        content.addView(deviceInput, fieldLayout());
+        Button listDevices = new Button(this);
+        listDevices.setText("列出已配對藍牙電腦");
+        content.addView(listDevices, fieldLayout());
+        listDevices.setOnClickListener(v -> listPairedDevices());
+        Button disconnectButton = new Button(this);
+        disconnectButton.setText("手動中斷藍牙");
+        content.addView(disconnectButton, fieldLayout());
+        disconnectButton.setOnClickListener(v -> disconnectBluetooth());
+        channelInput.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                if (position == selectedChannel) return;
+                selectedChannel = position;
+                cancelVoice();
+                transportGeneration++;
+                if (transport != null) { transport.close(); transport = null; }
+                disconnectBluetooth();
+                receiverAuthenticated = false;
+                bluetoothPending = false;
+                sendButton.setEnabled(false);
+                refreshReadiness();
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
         ipAddressInput = addField(
                 content,
                 "Windows Receiver IP",
@@ -213,7 +282,66 @@ public final class MainActivity extends Activity {
         readinessDot.setContentDescription(display.label());
     }
 
+    private void disconnectBluetooth() {
+        // A started service may exist before the binding callback (or after unbind).
+        startService(new Intent(this, BluetoothConnectionService.class).setAction(BluetoothConnectionService.DISCONNECT));
+    }
+
+    private boolean bluetoothSelected() { return channelInput != null && channelInput.getSelectedItemPosition() == 1; }
+
+    private void listPairedDevices() {
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 2);
+            receiverStatus.setText("需允許附近裝置權限，授權後再列出已配對裝置");
+            return;
+        }
+        BluetoothAdapter adapter = getSystemService(BluetoothManager.class).getAdapter();
+        pairedDevices.clear();
+        if (adapter != null && adapter.isEnabled()) pairedDevices.addAll(adapter.getBondedDevices());
+        List<String> names = new ArrayList<>();
+        for (BluetoothDevice device : pairedDevices) names.add(device.getName() + " (" + device.getAddress() + ")");
+        deviceInput.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names));
+        if (names.isEmpty()) receiverStatus.setText("找不到已配對裝置；請先在系統設定配對並開啟藍牙");
+    }
+
+    private void authenticateBluetooth() {
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 2);
+            receiverStatus.setText("需允許附近裝置權限，授權後再連線");
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 3);
+            receiverStatus.setText("需允許通知以顯示背景連線及中斷操作，授權後再連線");
+            return;
+        }
+        NotificationManager notifications = getSystemService(NotificationManager.class);
+        NotificationChannel channel = BluetoothConnectionService.ensureChannel(notifications);
+        if (!notifications.areNotificationsEnabled() || channel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+            receiverStatus.setText("藍牙背景連線需要通知；請在系統設定開啟本應用通知及藍牙輸入連線通知類別後重試");
+            return;
+        }
+        int selected = deviceInput.getSelectedItemPosition();
+        String code = pairingCodeInput.getText().toString();
+        if (selected < 0 || selected >= pairedDevices.size() || code.isEmpty() || bluetooth == null) {
+            receiverStatus.setText("請先選擇已配對電腦、輸入 Receiver 配對碼；服務未就緒請稍後重試");
+            return;
+        }
+        transportGeneration++;
+        if (transport != null) { transport.close(); transport = null; }
+        receiverAuthenticated = false;
+        sendButton.setEnabled(false);
+        try {
+            startForegroundService(new Intent(this, BluetoothConnectionService.class));
+            bluetooth.connect(pairedDevices.get(selected), code);
+        } catch (RuntimeException failure) {
+            receiverStatus.setText("無法啟動背景服務；請檢查藍牙及通知權限");
+        }
+    }
+
     private void authenticateReceiver() {
+        if (bluetoothSelected()) { authenticateBluetooth(); return; }
+        disconnectBluetooth();
         if (utterance.active()) {
             voiceStatus.setText("先放開並等待本次辨識結束，再重新驗證 Receiver");
             return;
@@ -326,6 +454,11 @@ public final class MainActivity extends Activity {
 
     private void sendFinalText() {
         if (utterance.active()) return;
+        if (bluetoothSelected()) {
+            if (bluetooth == null || !bluetooth.send(finalTextInput.getText().toString()))
+                receiverStatus.setText("藍牙未接受本次文字；未傳送，請確認連線與貼上結果");
+            return;
+        }
         if (!receiverAuthenticated || transport == null) {
             sendButton.setEnabled(false);
             return;
@@ -342,6 +475,10 @@ public final class MainActivity extends Activity {
 
     private void pressToTalk() {
         if (utterance.active()) return;
+        if (bluetoothSelected() && bluetoothPending) {
+            voiceStatus.setText("正在等待藍牙貼上結果；本次未收音或傳送");
+            return;
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             voiceStatus.setText("需要麥克風權限；本次未收音，授權後請重新按住說話");
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
@@ -358,16 +495,19 @@ public final class MainActivity extends Activity {
         refreshReadiness();
         talkButton.setPressed(true);
         voiceStatus.setText("正在連接 Gemini，尚未開始收音");
+        final int thisVoice = ++voiceGeneration;
         recognition = new GeminiLiveTranscriber(key, new GeminiLiveTranscriber.Listener() {
-            @Override public void onStage(String stage) { voiceStatus.setText(stage); }
-            @Override public void onInterim(String text) { utterance.interim(text); }
+            @Override public void onStage(String stage) { if (thisVoice == voiceGeneration) voiceStatus.setText(stage); }
+            @Override public void onInterim(String text) { if (thisVoice == voiceGeneration) utterance.interim(text); }
             @Override public void onFinal(String text) {
+                if (thisVoice != voiceGeneration) return;
                 utterance.finalText(text);
                 if (receiverAuthenticated) knownFailure = voiceStatus.getText().toString();
                 refreshReadiness();
                 recognition = null;
             }
             @Override public void onError(String reason) {
+                if (thisVoice != voiceGeneration) return;
                 utterance.fail(reason);
                 knownFailure = reason;
                 refreshReadiness();
@@ -383,6 +523,7 @@ public final class MainActivity extends Activity {
     }
 
     private void cancelVoice() {
+        voiceGeneration++;
         talkButton.setPressed(false);
         if (utterance.active()) {
             utterance.fail("操作已取消，未傳送");
@@ -396,20 +537,29 @@ public final class MainActivity extends Activity {
         // Keep only the current on-screen final, even if delivery fails; never queue a retry.
         recentText.setText(text);
         copyRecentButton.setEnabled(true);
-        if (!receiverAuthenticated || transport == null) {
+        if (!receiverAuthenticated || (bluetoothSelected() ? bluetooth == null : transport == null)) {
             knownFailure = "Receiver 已失去驗證，未傳送";
             voiceStatus.setText(knownFailure);
             refreshReadiness();
             return;
         }
-        receiverAuthenticated = false;
-        sendButton.setEnabled(false);
-        refreshReadiness();
-        transport.sendFinalText(text);
+        if (bluetoothSelected()) {
+            if (bluetoothPending || !bluetooth.send(text)) {
+                knownFailure = "藍牙未接受本次文字；未傳送，請檢查最近定稿";
+                voiceStatus.setText(knownFailure);
+                refreshReadiness();
+            }
+        } else {
+            receiverAuthenticated = false;
+            sendButton.setEnabled(false);
+            refreshReadiness();
+            transport.sendFinalText(text);
+        }
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == 2 || requestCode == 3) receiverStatus.setText("權限已更新；請重新選擇裝置並主動連線。拒絕時無法維持藍牙背景服務。");
         if (requestCode == 1) {
             voiceStatus.setText(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED
                     ? "已允許麥克風；請重新按住說話（本次沒有收音）"
@@ -459,6 +609,24 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putInt("channel", selectedChannel);
+        super.onSaveInstanceState(state);
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        bindService(new Intent(this, BluetoothConnectionService.class), serviceConnection, BIND_AUTO_CREATE);
+    }
+
+    @Override protected void onStop() {
+        if (utterance.active()) cancelVoice();
+        if (bluetooth != null) bluetooth.observe(null);
+        unbindService(serviceConnection);
+        bluetooth = null;
+        super.onStop();
     }
 
     @Override protected void onResume() {
