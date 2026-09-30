@@ -36,21 +36,58 @@ public final class MainActivity extends Activity {
     private static final int CHANNEL_BLUETOOTH = 1;
     private Spinner channelInput;
     private int selectedChannel;
-    private Spinner deviceInput;
-    private final List<BluetoothDevice> pairedDevices = new ArrayList<>();
+    private ConnectionCoordinator.Targets targetsSnapshot;
+    private Button restorePendingButton;
+    private long snapshotGeneration;
+    private long bondDeadline;
+    private boolean storageUnavailable;
+    /** Memory only. No Activity, executor, callback, Intent, Bundle or QR serialization. */
+    private static final class BondRetention {
+        final ConnectionCoordinator coordinator;
+        final AuthorizationStore store;
+        final BluetoothDevice device;
+        final long deadline;
+        BondRetention(ConnectionCoordinator coordinator, AuthorizationStore store, BluetoothDevice device, long deadline) {
+            this.coordinator = coordinator; this.store = store; this.device = device; this.deadline = deadline;
+        }
+    }
+    private AuthorizationStore authorizationStore;
+    private ConnectionCoordinator coordinator;
+    private ConnectionCoordinator.Preparation ownedPreparation;
+    private final java.util.concurrent.ExecutorService authorizationWorker = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private Button scanButton;
+    private TextView targetLabel;
+    private boolean connectingAttempt, waitingBond, activityVisible;
+    private int bondGeneration;
+    private BluetoothDevice bondingDevice;
+    private Runnable permissionContinuation;
+    private boolean bondReceiverRegistered;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final android.content.BroadcastReceiver bondReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class);
+            if (!waitingBond || device == null || !device.equals(bondingDevice)) return;
+            reconcileBond();
+        }
+    };
     private BluetoothConnectionService bluetooth;
     private boolean bluetoothPending;
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             bluetooth = ((BluetoothConnectionService.LocalBinder) binder).service();
+            if (bluetooth.coordinator() != null) coordinator = bluetooth.coordinator();
             bluetooth.observe((ready, pending, status) -> {
                 if (!bluetoothSelected()) return;
                 receiverAuthenticated = ready;
+                if (ready) knownFailure = null;
+                if (!ready && utterance.active()) cancelVoice();
                 bluetoothPending = pending;
+                if (authorizationStore != null) reloadTargets();
                 receiverStatus.setText(status);
                 sendButton.setEnabled(ready && !pending);
                 refreshReadiness();
             });
+            if (waitingBond && activityVisible) reconcileBond();
         }
         @Override public void onServiceDisconnected(ComponentName name) {
             bluetooth = null;
@@ -58,9 +95,6 @@ public final class MainActivity extends Activity {
             refreshReadiness();
         }
     };
-    private EditText ipAddressInput;
-    private EditText portInput;
-    private EditText pairingCodeInput;
     private EditText finalTextInput;
     private TextView receiverStatus;
     private Button authenticateButton;
@@ -84,6 +118,13 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Object retained = getLastNonConfigurationInstance();
+        if (retained instanceof BondRetention) {
+            BondRetention bond = (BondRetention) retained;
+            coordinator = bond.coordinator; authorizationStore = bond.store;
+            bondingDevice = bond.device; bondDeadline = bond.deadline;
+            waitingBond = coordinator.waitingForSystemBond(); connectingAttempt = waitingBond;
+        }
         setTitle("TalkToAgent 按住說話");
         keyStore = new GeminiKeyStore(this);
         utterance = new VoiceUtterance(this::deliverVoiceFinal,
@@ -124,60 +165,28 @@ public final class MainActivity extends Activity {
 
         channelInput = new Spinner(this);
         channelInput.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"Wi-Fi（可信任家庭區網）", "藍牙（已系統配對）"}));
+                new String[]{"Wi-Fi（已授權目標）", "藍牙（已授權目標）"}));
         content.addView(channelInput, fieldLayout());
         selectedChannel = savedInstanceState == null ? CHANNEL_WIFI
                 : savedInstanceState.getInt("channel", CHANNEL_WIFI);
         channelInput.setSelection(selectedChannel);
-        deviceInput = new Spinner(this);
-        content.addView(deviceInput, fieldLayout());
-        Button listDevices = new Button(this);
-        listDevices.setText("列出已配對藍牙電腦");
-        content.addView(listDevices, fieldLayout());
-        listDevices.setOnClickListener(v -> listPairedDevices());
+        targetLabel = new TextView(this);
+        targetLabel.setText("尚未取得應用授權；請掃描電腦的短效邀請");
+        content.addView(targetLabel, fieldLayout());
+        scanButton = new Button(this); scanButton.setText("掃描連線邀請 QR");
+        content.addView(scanButton, fieldLayout());
+        scanButton.setOnClickListener(v -> scanInvitation());
         Button disconnectButton = new Button(this);
-        disconnectButton.setText("手動中斷藍牙");
+        disconnectButton.setText("手動中斷連線／取消配對等待");
         content.addView(disconnectButton, fieldLayout());
-        disconnectButton.setOnClickListener(v -> disconnectBluetooth());
+        disconnectButton.setOnClickListener(v -> disconnectAll());
         channelInput.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 if (position == selectedChannel) return;
-                selectedChannel = position;
-                cancelVoice();
-                transportGeneration++;
-                if (transport != null) { transport.close(); transport = null; }
-                disconnectBluetooth();
-                receiverAuthenticated = false;
-                bluetoothPending = false;
-                sendButton.setEnabled(false);
-                refreshReadiness();
+                disconnectAll(); selectedChannel = position; updateTargetLabel();
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
-        ipAddressInput = addField(
-                content,
-                "Windows Receiver IP",
-                "例如 192.168.1.20",
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI,
-                ""
-        );
-        portInput = addField(
-                content,
-                "連接埠",
-                "8765",
-                InputType.TYPE_CLASS_NUMBER,
-                "8765"
-        );
-        pairingCodeInput = addField(
-                content,
-                "配對碼",
-                "從 Windows Receiver 啟動畫面輸入",
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD,
-                ""
-        );
-        pairingCodeInput.setSaveEnabled(false);
-        pairingCodeInput.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
-
         geminiKeyInput = addField(content, "Gemini API key（儲存在本機加密儲存區）",
                 "輸入金鑰後按儲存；留空可清除", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, "");
         geminiKeyInput.setSaveEnabled(false);
@@ -200,8 +209,12 @@ public final class MainActivity extends Activity {
         });
 
         authenticateButton = new Button(this);
-        authenticateButton.setText("驗證 Windows Receiver");
+        authenticateButton.setText("連線（恢復既有應用授權）");
         content.addView(authenticateButton, fieldLayout());
+        restorePendingButton = new Button(this);
+        restorePendingButton.setText("恢復上次未完成授權"); restorePendingButton.setEnabled(false);
+        restorePendingButton.setOnClickListener(v -> authenticateReceiver(true));
+        content.addView(restorePendingButton, fieldLayout());
 
         receiverStatus = new TextView(this);
         receiverStatus.setText("Receiver：尚未驗證");
@@ -269,10 +282,20 @@ public final class MainActivity extends Activity {
         authenticateButton.setOnClickListener(view -> authenticateReceiver());
         sendButton.setOnClickListener(view -> sendFinalText());
         refreshReadiness();
+        if (savedInstanceState != null && savedInstanceState.getBoolean("bondWasWaiting") && !(retained instanceof BondRetention))
+            receiverStatus.setText("配對邀請因程序結束已失效；已停止，請取得新邀請重掃（不會冷啟動自動連線）");
+        reloadTargets();
     }
 
     private void refreshReadiness() {
         if (readinessDot == null || readinessLabel == null) return;
+        if (coordinator != null) coordinator.setUtteranceActive(utterance.active());
+        if (restorePendingButton != null) restorePendingButton.setEnabled(targetsSnapshot != null
+                && targetsSnapshot.pending(bluetoothSelected() ? "bt" : "wifi") != null
+                && coordinator != null && coordinator.canScan() && !connectingAttempt && !waitingBond
+                && (bluetooth == null || !bluetooth.busy()));
+        if (scanButton != null) scanButton.setEnabled(authorizationStore != null && coordinator != null && coordinator.canScan()
+                && !connectingAttempt && !waitingBond && !bluetoothPending && (bluetooth == null || !bluetooth.busy()));
         InputReadiness.Display display = InputReadiness.evaluate(receiverAuthenticated,
                 !keyStore.read().isEmpty(),
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
@@ -294,59 +317,202 @@ public final class MainActivity extends Activity {
         return channelInput != null && channelInput.getSelectedItemPosition() == CHANNEL_BLUETOOTH;
     }
 
-    private void listPairedDevices() {
-        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 2);
-            receiverStatus.setText("需允許附近裝置權限，授權後再列出已配對裝置");
-            return;
-        }
-        BluetoothAdapter adapter = getSystemService(BluetoothManager.class).getAdapter();
-        pairedDevices.clear();
-        if (adapter != null && adapter.isEnabled()) pairedDevices.addAll(adapter.getBondedDevices());
-        List<String> names = new ArrayList<>();
-        for (BluetoothDevice device : pairedDevices) names.add(device.getName() + " (" + device.getAddress() + ")");
-        deviceInput.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names));
-        if (names.isEmpty()) receiverStatus.setText("找不到已配對裝置；請先在系統設定配對並開啟藍牙");
+    private void scanInvitation() {
+        if (coordinator == null || !coordinator.canScan() || connectingAttempt || waitingBond || bluetoothPending
+                || (bluetooth != null && bluetooth.busy())) return;
+        ensurePermission(Manifest.permission.CAMERA, "掃描電腦短效 QR 需要相機；不會儲存 QR 圖片", () ->
+                startActivityForResult(new Intent(this, InvitationScanActivity.class), 40));
     }
-
+    private void updateTargetLabel() {
+        if (targetLabel == null) return;
+        String channel = bluetoothSelected() ? "bt" : "wifi";
+        AuthorizationRepository.Endpoint endpoint = null;
+        if (targetsSnapshot != null) for (AuthorizationRepository.Endpoint value : targetsSnapshot.active)
+            if (channel.equals(value.channel)) endpoint = value;
+        AuthorizationRepository.Endpoint pending = targetsSnapshot == null ? null : targetsSnapshot.pending(channel);
+        String label = endpoint == null ? "此通道尚無已授權電腦" : "已授權電腦：" + endpoint.target
+                + "（" + endpoint.fingerprint.substring(0, 12) + "…）";
+        if (pending != null) label += "\n上次未完成授權（尚非 active）：" + pending.target + "；可明確按恢復";
+        targetLabel.setText(label); refreshReadiness();
+    }
+    private void reloadTargets() {
+        if (storageUnavailable || authorizationWorker.isShutdown() || isDestroyed()) return;
+        long request = ++snapshotGeneration;
+        int attempt = transportGeneration;
+        AuthorizationStore existing = authorizationStore;
+        Context application = getApplicationContext();
+        authorizationWorker.execute(() -> {
+            try {
+                AuthorizationStore store = existing == null ? new AuthorizationStore(application) : existing;
+                ConnectionCoordinator loader = new ConnectionCoordinator(store);
+                ConnectionCoordinator.Targets targets = loader.loadTargets();
+                runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing() || request != snapshotGeneration || attempt != transportGeneration) return;
+                    authorizationStore = store;
+                    if (coordinator == null) coordinator = loader;
+                    targetsSnapshot = targets; updateTargetLabel();
+                });
+            } catch (Exception failure) { runOnUiThread(() -> {
+                if (isDestroyed() || isFinishing() || request != snapshotGeneration || attempt != transportGeneration) return;
+                storageUnavailable = true; authorizationStore = null; targetsSnapshot = null;
+                disconnectAll(); showAuthenticationFailure("授權儲存不可讀；連線已停止，不會重建授權");
+            }); }
+        });
+    }
+    private void disconnectAll() {
+        cancelVoice(); stopBondWait(); connectingAttempt = false; permissionContinuation = null;
+        transportGeneration++; snapshotGeneration++;
+        if (transport != null) { transport.close(); transport = null; }
+        if (bluetooth != null) bluetooth.disconnect(); else disconnectBluetooth();
+        if (coordinator != null) coordinator.disconnected();
+        receiverAuthenticated = false; bluetoothPending = false; sendButton.setEnabled(false);
+        authenticateButton.setEnabled(true);
+        receiverStatus.setText(coordinator != null && coordinator.outcomeUnknown()
+                ? "輸入結果不明；先檢查電腦，未自動補送" : "已手動中斷；不會自動重連");
+        reloadTargets(); refreshReadiness();
+    }
+    private void ensurePermission(String permission, String rationale, Runnable continuation) {
+        if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) { continuation.run(); return; }
+        receiverAuthenticated = false; refreshReadiness(); permissionContinuation = continuation;
+        Runnable request = () -> requestPermissions(new String[]{permission}, 20);
+        if (shouldShowRequestPermissionRationale(permission)) new android.app.AlertDialog.Builder(this)
+                .setMessage(rationale).setPositiveButton("允許", (dialog, which) -> request.run())
+                .setNegativeButton("取消", (dialog, which) -> { permissionContinuation = null; connectingAttempt = false; refreshReadiness(); }).show();
+        else request.run();
+    }
+    private void showSettings(String message) {
+        new android.app.AlertDialog.Builder(this).setMessage(message)
+                .setPositiveButton("開啟設定", (dialog, which) -> startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.fromParts("package", getPackageName(), null))))
+                .setNegativeButton("取消", null).show();
+    }
     private void authenticateBluetooth() {
-        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 2);
-            receiverStatus.setText("需允許附近裝置權限，授權後再連線");
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 3);
-            receiverStatus.setText("需允許通知以顯示背景連線及中斷操作，授權後再連線");
-            return;
-        }
+        ensurePermission(Manifest.permission.BLUETOOTH_CONNECT, "需要附近裝置權限以連接 QR 指定電腦及完成系統配對", () ->
+            ensurePermission(Manifest.permission.POST_NOTIFICATIONS, "需要通知以保留藍牙背景連線及手動中斷操作", this::prepareBluetooth));
+    }
+    private void prepareBluetooth() {
         NotificationManager notifications = getSystemService(NotificationManager.class);
         NotificationChannel channel = BluetoothConnectionService.ensureChannel(notifications);
         if (!notifications.areNotificationsEnabled() || channel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
-            receiverStatus.setText("藍牙背景連線需要通知；請在系統設定開啟本應用通知及藍牙輸入連線通知類別後重試");
-            return;
+            connectingAttempt = false; showSettings("請允許通知及藍牙輸入連線通知類別，再按連線"); refreshReadiness(); return;
         }
-        int selected = deviceInput.getSelectedItemPosition();
-        String code = pairingCodeInput.getText().toString();
-        if (selected < 0 || selected >= pairedDevices.size() || code.isEmpty() || bluetooth == null) {
-            receiverStatus.setText("請先選擇已配對電腦、輸入 Receiver 配對碼；服務未就緒請稍後重試");
-            return;
-        }
-        transportGeneration++;
-        if (transport != null) { transport.close(); transport = null; }
-        receiverAuthenticated = false;
-        sendButton.setEnabled(false);
         try {
+            BluetoothAdapter adapter = getSystemService(BluetoothManager.class).getAdapter();
+            if (adapter == null || !adapter.isEnabled()) { connectingAttempt = false; showSettings("請在系統設定開啟藍牙，再按連線"); refreshReadiness(); return; }
+            if (bluetooth == null) { showAuthenticationFailure("背景服務尚未就緒；請稍後按連線"); return; }
+            BluetoothDevice device = adapter.getRemoteDevice(coordinator.selected().bluetoothAddress());
+            if (device.getBondState() == BluetoothDevice.BOND_BONDED) { startBluetoothSession(device); return; }
+            coordinator.waitForSystemBond(); bondingDevice = device; waitingBond = true;
+            bondDeadline = android.os.SystemClock.elapsedRealtime() + 120000;
+            attachBondReceiver();
+            receiverStatus.setText("等待指定電腦的系統藍牙配對確認；尚未取得應用授權"); refreshReadiness();
+            if (device.getBondState() != BluetoothDevice.BOND_BONDING && !device.createBond()) { bondCancelled(); return; }
+        } catch (SecurityException failure) { bondCancelled(); showSettings("附近裝置權限已撤銷；請修復後重掃"); }
+        catch (RuntimeException failure) { bondCancelled(); }
+    }
+    private void startBluetoothSession(BluetoothDevice device) {
+        try {
+            connectingAttempt = false;
             startForegroundService(new Intent(this, BluetoothConnectionService.class));
-            bluetooth.connect(pairedDevices.get(selected), code);
-        } catch (RuntimeException failure) {
-            receiverStatus.setText("無法啟動背景服務；請檢查藍牙及通知權限");
+            bluetooth.connect(device, coordinator); refreshReadiness();
+        } catch (RuntimeException failure) { showAuthenticationFailure("無法啟動背景連線；請檢查藍牙及通知權限"); }
+    }
+    private void attachBondReceiver() {
+        if (!waitingBond || bondingDevice == null || bondReceiverRegistered) return;
+        registerReceiver(bondReceiver, new android.content.IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED), Context.RECEIVER_EXPORTED);
+        bondReceiverRegistered = true; // Protected system Bluetooth broadcast; actual state is queried below.
+        int attempt = ++bondGeneration;
+        long remaining = Math.max(0, bondDeadline - android.os.SystemClock.elapsedRealtime());
+        main.postDelayed(() -> { if (waitingBond && attempt == bondGeneration && !isDestroyed()) bondCancelled(); }, remaining);
+    }
+    private void reconcileBond() {
+        if (!waitingBond || bondingDevice == null || coordinator == null || !activityVisible || isDestroyed()) return;
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            bondCancelled(); showSettings("配對等待所需權限已撤銷；請修復後重掃"); return;
         }
+        try {
+            int actual = bondingDevice.getBondState();
+            if (actual == BluetoothDevice.BOND_BONDED && bluetooth == null) return; // Reconcile again after binding.
+            ConnectionCoordinator.BondState state = actual == BluetoothDevice.BOND_BONDED ? ConnectionCoordinator.BondState.BONDED
+                    : actual == BluetoothDevice.BOND_BONDING ? ConnectionCoordinator.BondState.BONDING : ConnectionCoordinator.BondState.NONE;
+            ConnectionCoordinator.BondProgress progress = coordinator.observeSystemBond(coordinator.selected().target, state);
+            if (progress == ConnectionCoordinator.BondProgress.CONNECT) {
+                BluetoothDevice device = bondingDevice; stopBondWait();
+                NotificationManager notifications = getSystemService(NotificationManager.class);
+                if (!notifications.areNotificationsEnabled() || BluetoothConnectionService.ensureChannel(notifications).getImportance() == NotificationManager.IMPORTANCE_NONE) {
+                    coordinator.disconnected(); connectingAttempt = false; showSettings("通知不可用；已停止續接，請修復後重掃"); refreshReadiness(); return;
+                }
+                startBluetoothSession(device);
+            } else if (progress == ConnectionCoordinator.BondProgress.CANCELLED) bondCancelled();
+            else { receiverStatus.setText("等待指定電腦系統配對；邀請僅保留於記憶體"); refreshReadiness(); }
+        } catch (SecurityException failure) { bondCancelled(); showSettings("附近裝置權限已撤銷；請修復後重掃"); }
+    }
+    private void stopBondWait() {
+        waitingBond = false; bondingDevice = null; bondGeneration++;
+        if (bondReceiverRegistered) { unregisterReceiver(bondReceiver); bondReceiverRegistered = false; }
+    }
+    private void bondCancelled() {
+        stopBondWait(); connectingAttempt = false;
+        receiverStatus.setText("系統配對已取消或未完成；已停止嘗試，請取得新邀請重掃");
+        if (coordinator != null) coordinator.disconnected();
+        refreshReadiness();
+    }
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != 40 || resultCode != RESULT_OK || data == null) return;
+        if (coordinator == null || authorizationStore == null || !coordinator.canScan() || connectingAttempt || waitingBond) {
+            receiverStatus.setText("授權儲存尚未就緒或連線忙碌；請稍後重掃，既有授權未變更"); return;
+        }
+        String uri = data.getStringExtra(InvitationScanActivity.RESULT);
+        connectingAttempt = true; int scanAttempt = ++transportGeneration; refreshReadiness();
+        authorizationWorker.execute(() -> {
+            try {
+                Invitation invitation = Invitation.parse(uri);
+                List<AuthorizationRepository.Endpoint> pinned = authorizationStore.active();
+                AuthorizationRepository.Endpoint pending = authorizationStore.pending();
+                if (pending != null) pinned.add(pending);
+                for (AuthorizationRepository.Endpoint endpoint : pinned)
+                    if (!endpoint.fingerprint.equals(invitation.fingerprint)) throw new SecurityException();
+                runOnUiThread(() -> {
+                    if (isDestroyed() || scanAttempt != transportGeneration || !connectingAttempt) return;
+                    try {
+                        coordinator.selectInvitation(uri);
+                        int channel = "bt".equals(coordinator.selected().channel) ? CHANNEL_BLUETOOTH : CHANNEL_WIFI;
+                        selectedChannel = channel; channelInput.setSelection(channel);
+                        targetLabel.setText("邀請指定電腦：" + coordinator.selected().target + "；尚未授權"); connectSelected();
+                    } catch (Exception failure) { showAuthenticationFailure("QR 無效或連線忙碌；既有授權未變更"); }
+                });
+            } catch (Exception failure) { runOnUiThread(() -> {
+                if (!isDestroyed() && scanAttempt == transportGeneration) showAuthenticationFailure("QR 無效、不同授權電腦或儲存不可讀；既有授權未變更");
+            }); }
+        });
+    }
+    private void connectSelected() {
+        connectingAttempt = true; refreshReadiness();
+        if (bluetoothSelected()) authenticateBluetooth(); else authenticateWifi();
     }
 
-    private void authenticateReceiver() {
-        if (bluetoothSelected()) { authenticateBluetooth(); return; }
-        disconnectBluetooth();
+    private void authenticateReceiver() { authenticateReceiver(false); }
+    private void authenticateReceiver(boolean pendingOnly) {
+        if (coordinator == null || connectingAttempt || waitingBond || !coordinator.canScan()
+                || (bluetooth != null && bluetooth.busy())) return;
+        String channel = bluetoothSelected() ? "bt" : "wifi";
+        AuthorizationRepository.Endpoint endpoint = targetsSnapshot == null ? null
+                : pendingOnly ? targetsSnapshot.pending(channel) : targetsSnapshot.normal(channel);
+        if (endpoint == null) { showAuthenticationFailure("此通道無可恢復授權；請掃描電腦的有效邀請"); return; }
+        connectingAttempt = true; int attempt = ++transportGeneration; snapshotGeneration++; refreshReadiness();
+        ownedPreparation = coordinator.prepareResume(endpoint, authorizationWorker, command -> main.post(command), new ConnectionCoordinator.PreparationListener() {
+            @Override public void prepared() {
+                if (!isDestroyed() && !isFinishing() && attempt == transportGeneration && connectingAttempt) connectSelected();
+            }
+            @Override public void failed() {
+                if (!isDestroyed() && !isFinishing() && attempt == transportGeneration && connectingAttempt)
+                    showAuthenticationFailure("授權不可恢復；請取得新邀請重掃");
+            }
+        });
+    }
+    private void authenticateWifi() {
         if (utterance.active()) {
             voiceStatus.setText("先放開並等待本次辨識結束，再重新驗證 Receiver");
             return;
@@ -361,20 +527,7 @@ public final class MainActivity extends Activity {
         sendButton.setEnabled(false);
         refreshReadiness();
 
-        String ipAddress = ipAddressInput.getText().toString().trim();
-        String pairingCode = pairingCodeInput.getText().toString();
-        final int port;
-        try {
-            port = Integer.parseInt(portInput.getText().toString().trim());
-        } catch (NumberFormatException exception) {
-            showAuthenticationFailure("連接埠無效。");
-            return;
-        }
-        if (ipAddress.isEmpty() || pairingCode.isEmpty() || port < 1 || port > 65535) {
-            showAuthenticationFailure("請輸入有效 IP、連接埠與配對碼。");
-            return;
-        }
-
+        connectingAttempt = true;
         authenticateButton.setEnabled(false);
         receiverStatus.setText("正在驗證 Windows Receiver…");
 
@@ -385,11 +538,11 @@ public final class MainActivity extends Activity {
                     if (isFinishing() || attempt != transportGeneration) {
                         return;
                     }
-                    receiverAuthenticated = true;
-                    knownFailure = null;
+                    connectingAttempt = false; receiverAuthenticated = true;
+                    knownFailure = null; reloadTargets();
                     refreshReadiness();
                     authenticateButton.setEnabled(true);
-                    authenticateButton.setText("重新驗證 Windows Receiver");
+                    authenticateButton.setText("連線（恢復應用授權）");
                     sendButton.setEnabled(true);
                     receiverStatus.setText(
                             "Windows Receiver 已驗證；請先在 Windows 目標欄位放置游標。"
@@ -403,7 +556,7 @@ public final class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (attempt == transportGeneration && !isFinishing()) {
                         showAuthenticationFailure(
-                                "配對驗證失敗；請確認 IP、連接埠與配對碼。"
+                                "應用授權被拒絕；請取得新邀請重掃。"
                         );
                     }
                 });
@@ -421,7 +574,8 @@ public final class MainActivity extends Activity {
                     sendButton.setEnabled(false);
                     receiverStatus.setText(
                             "Receiver 已確認完成剪貼簿與貼上動作；手機無法確認目標欄位是否顯示文字。"
-                                    + "此連線已結束，不會自動重送；重新驗證才能再次輸入。"
+                                    + "此連線已結束，不會自動重送；按連線才能再次輸入。"
+                                    + (coordinator.outcomeUnknown() ? " 較早一筆輸入結果仍不明；請檢查電腦。" : "")
                     );
                 });
             }
@@ -432,7 +586,7 @@ public final class MainActivity extends Activity {
                     if (attempt != transportGeneration || isFinishing()) {
                         return;
                     }
-                    receiverAuthenticated = false;
+                    connectingAttempt = false; receiverAuthenticated = false;
                     authenticateButton.setEnabled(true);
                     sendButton.setEnabled(false);
                     String message;
@@ -446,7 +600,7 @@ public final class MainActivity extends Activity {
                         message = "連線失敗或結果不明；未自動重送。請先檢查 Windows 目標欄位。";
                     }
                     receiverStatus.setText(message);
-                    knownFailure = message;
+                    knownFailure = message; reloadTargets();
                     utterance.fail(message);
                     refreshReadiness();
                     if (recognition != null) { recognition.close(); recognition = null; }
@@ -454,7 +608,7 @@ public final class MainActivity extends Activity {
             }
         };
         transport = new WebSocketFinalTextTransport(listener);
-        transport.authenticate(ipAddress, port, pairingCode);
+        transport.authenticate(coordinator);
     }
 
     private void sendFinalText() {
@@ -564,7 +718,16 @@ public final class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == 2 || requestCode == 3) receiverStatus.setText("權限已更新；請重新選擇裝置並主動連線。拒絕時無法維持藍牙背景服務。");
+        if (requestCode == 20) {
+            Runnable next = permissionContinuation; permissionContinuation = null;
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) { if (next != null) next.run(); }
+            else {
+                connectingAttempt = false;
+                receiverStatus.setText("所需權限遭拒，未取得輸入就緒；修復後重掃或按連線");
+                if (permissions.length > 0 && !shouldShowRequestPermissionRationale(permissions[0])) showSettings("權限已拒絕；請在應用設定允許相機、附近裝置或通知");
+                refreshReadiness();
+            }
+        }
         if (requestCode == 1) {
             voiceStatus.setText(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED
                     ? "已允許麥克風；請重新按住說話（本次沒有收音）"
@@ -574,8 +737,9 @@ public final class MainActivity extends Activity {
     }
 
     private void showAuthenticationFailure(String message) {
-        receiverAuthenticated = false;
+        connectingAttempt = false; receiverAuthenticated = false;
         knownFailure = message;
+        if (authorizationStore != null) reloadTargets();
         authenticateButton.setEnabled(true);
         sendButton.setEnabled(false);
         receiverStatus.setText(message);
@@ -616,17 +780,27 @@ public final class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    @Override public Object onRetainNonConfigurationInstance() {
+        return waitingBond && coordinator != null ? new BondRetention(coordinator, authorizationStore, bondingDevice, bondDeadline) : null;
+    }
     @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("bondWasWaiting", waitingBond); // Never persist the invitation, pin or secret in a Bundle.
         state.putInt("channel", selectedChannel);
         super.onSaveInstanceState(state);
     }
 
     @Override protected void onStart() {
-        super.onStart();
+        super.onStart(); activityVisible = true;
+        if (waitingBond && bondingDevice != null) {
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+                    || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) bondCancelled();
+            else { attachBondReceiver(); reconcileBond(); }
+        }
         bindService(new Intent(this, BluetoothConnectionService.class), serviceConnection, BIND_AUTO_CREATE);
     }
 
     @Override protected void onStop() {
+        activityVisible = false;
         if (utterance.active()) cancelVoice();
         if (bluetooth != null) bluetooth.observe(null);
         unbindService(serviceConnection);
@@ -636,6 +810,13 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (bluetoothSelected() && receiverAuthenticated
+                && (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                || !getSystemService(NotificationManager.class).areNotificationsEnabled()
+                || BluetoothConnectionService.ensureChannel(getSystemService(NotificationManager.class)).getImportance() == NotificationManager.IMPORTANCE_NONE)) {
+            disconnectAll(); showSettings("所需藍牙或通知權限已撤銷；連線已停止，請修復後按連線");
+        }
         refreshReadiness();
     }
 
@@ -648,11 +829,17 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         cancelVoice();
-        transportGeneration++;
+        transportGeneration++; snapshotGeneration++;
+        if (coordinator != null) {
+            if (ownedPreparation != null) ownedPreparation.cancel(); // Never cancel the Service's request.
+            if (!isChangingConfigurations() && coordinator.waitingForSystemBond()) coordinator.disconnected();
+        }
         if (transport != null) {
             transport.close();
             transport = null;
         }
+        stopBondWait(); permissionContinuation = null; main.removeCallbacksAndMessages(null);
+        authorizationWorker.shutdownNow();
         super.onDestroy();
     }
 }

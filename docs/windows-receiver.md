@@ -1,132 +1,85 @@
-# Windows Receiver：從零開始的手動貼上原型
+# Windows Receiver：QR 邀請與持久應用授權
 
-本切片只支援手機手動送出一段定稿文字；沒有語音收音、Gemini 連線、文字佇列或自動重送。Receiver 每個 WebSocket 連線最多接受一段文字，成功貼上後即關閉連線。
+手機在 App 內掃描 Windows 終端 QR，取得指定通道的應用授權。Wi-Fi 每個連線最多接受一段轉錄定稿，貼上後關閉；藍牙保持工作階段。兩者都不保存逐字稿、不自動 Enter、不補送文字。
 
 ## 安全限制
 
-- 手機和 Windows 電腦必須位於彼此可連線的可信任私人家庭區網。
-- 手機使用 `ws://`，傳輸**沒有加密**。配對碼只用來授權連線，不會加密配對碼或文字；同一網路上的其他人可能竊聽。不要在辦公室、公共 Wi-Fi 或傳送敏感文字時使用。
-- Receiver 每次啟動都在記憶體產生新的隨機配對碼，只顯示於正在執行的 Receiver 主控台，不寫入檔案或一般日誌。不要將 Receiver 主控台輸出重新導向到記錄檔，也不要分享配對碼。
-- 文字最多 4 KiB UTF-8；WebSocket frame 上限為 32 KiB。空白、格式錯誤、無效 Unicode 或超限文字不會觸發貼上。
-- Receiver 將文字寫入 Windows 剪貼簿，再對當下焦點送出 Ctrl+V；剪貼簿會被覆蓋、不會還原，也不會額外送空格或換行。回覆只表示剪貼簿和按鍵動作已完成，無法證明目標程式實際顯示文字。
-- 連線結果不明時先檢查目標欄位，不要立刻手動重送；App 和 Receiver 都不會自動重試或保存文字。
+- Wi-Fi 只能用於彼此可連線的可信任私人家庭區網。`ws://` **不加密文字**，QR、簽章授權與藍牙安全設定都不會把 Wi-Fi 變成 TLS；不承諾抵禦主動中間人。不要在公司／公共網路或傳送敏感文字時使用。
+- 有效 QR 持有人可能搶先取得應用授權。不要分享 QR、截圖或將 Receiver 主控台輸出重新導向到日誌。QR 秘密只供短效邀請，不是永久配對碼。
+- 系統藍牙配對不等於應用授權；一台 Receiver 只授權一支手機，Wi-Fi／藍牙需各自掃碼。原手機可追加通道，更換手機必須先在 Windows 撤銷。
+- 轉錄定稿最多 4096 bytes UTF-8，frame 最多 32768 bytes；空白、NUL、無效 Unicode、非法欄位或超限文字不會貼上。
+- Receiver 替換 Windows 剪貼簿並對目前焦點送 Ctrl+V，不會還原剪貼簿。「貼上操作完成」只代表剪貼簿及貼上動作已發出，不代表目標程式已接受或執行。
+- 「輸入結果不明」時先檢查電腦，不要立刻重送。重連不會補貼旧文字。
 
-## 安裝與啟動
+## 安裝與啟動（PowerShell）
 
-1. 在 Windows 安裝 Python 3.10 或更新版本，開啟 PowerShell，確認：
-
-   ```powershell
-   py -3 --version
-   ```
-
-2. 從專案根目錄建立虛擬環境並安裝 Receiver 唯一的第三方相依套件：
-
-   ```powershell
-   cd windows_receiver
-   py -3 -m venv .venv
-   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-   ```
-
-3. 啟動預設埠 8765 的 Receiver：
-
-   ```powershell
-   .\.venv\Scripts\python.exe receiver.py
-   ```
-
-   主控台會顯示可供手機使用的 `ws://<Windows-IP>:8765/ws` 位址、隨機配對碼與操作提示。若 Windows 防火牆詢問，僅在可信任的私人網路允許 Python 接受連線。要使用其他埠可執行 `receiver.py --port 8766`，並在手機輸入相同埠號。
-
-保持這個主控台開啟；按 Ctrl+C 停止 Receiver。每次重新啟動都會產生不同配對碼。
-
-## 自動測試
-
-在 `windows_receiver` 目錄執行 Receiver 的 WebSocket／驗證／假貼上測試：
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s . -p "test_*.py" -v
-```
-
-在專案根目錄執行 Android 協定單元測試：
-
-```powershell
-.\gradlew.bat :app:testDebugUnitTest
-```
-
-## 建置與手機到 Receiver 示範
-
-1. 在專案根目錄建置 Android App：
-
-   ```powershell
-   .\gradlew.bat :app:assembleDebug
-   ```
-
-   將 `app\build\outputs\apk\debug\app-debug.apk` 安裝到 Android 手機（已連接裝置時可用 `android install --apks=app\build\outputs\apk\debug\app-debug.apk`），開啟 **TalkToAgent 手動傳送**。
-
-2. 手機與電腦連上同一個可信任家庭 Wi-Fi。在 App 輸入 Receiver 主控台顯示的 IP、埠 `8765` 和當次配對碼，按 **驗證 Windows Receiver**。畫面應顯示 Receiver 已驗證；同時明確顯示「Gemini 尚未設定，語音輸入仍不就緒」。配對錯誤時會顯示驗證失敗，且不會貼上。
-
-3. 在 Windows 開啟記事本並將游標放在空白文件；回到手機，保留預填的 `TalkToAgent 手動測試` 或輸入一段測試文字，按 **傳送並貼上一次**。
-
-4. 文字應只貼入記事本游標位置一次，內容前後沒有程式額外加入的空格或換行。Receiver 替換系統剪貼簿；可在記事本另一處按 Ctrl+V 驗證剪貼簿保留同一段文字。每次再次傳送前都要重新驗證 Receiver。
-
-若未收到確認，先看記事本和剪貼簿，再決定是否手動重新驗證與傳送；確認遺失可能代表文字已貼上，重送可能造成重複。
-
-## 共用 WebSocket 協定
-
-- 端點：`ws://<IP>:<port>/ws`；Receiver 預設埠 8765。
-- 每個連線第一個文字 frame 必須是 `{"type":"authenticate","pairingCode":"…"}`。正確配對碼回覆 `{"type":"authenticated"}`；錯誤配對碼回覆 `{"type":"authentication_failed"}` 並關閉連線。
-- 驗證後只接受一個格式完全符合 `{"type":"final_text","text":"…"}` 的 frame。完成剪貼簿與 Ctrl+V 動作後回覆 `{"type":"pasted"}`；無效請求回覆 `{"type":"error","code":"invalid_message"}`，貼上動作失敗回覆 `{"type":"error","code":"paste_failed"}`。接著關閉連線。
-
-此 Receiver 不保存或記錄定稿文字。未設定 Gemini 的手動示範不代表語音輸入已可用，也不會顯示整體「輸入就緒」。
-
-## 藍牙直連（SM-F7410／Windows 實機試用）
-
-先在兩端系統藍牙設定中開啟藍牙並完成配對。Windows 接收端從同一個入口啟動：
+在專案根目錄：
 
 ```powershell
 cd windows_receiver
-python receiver.py --bluetooth
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe receiver.py
 ```
 
-手機選「藍牙」、列出並選取已配對的 Windows 電腦，輸入**主控台當次顯示的配對碼**，再按「驗證 Windows Receiver」。首次連線時，回到 Windows 主控台確認顯示的是自己的手機位址，輸入 `yes` 明確授權。先將游標放在 Windows 目標文字欄位，再在手機前景按住說話、放開後等候轉錄定稿與貼上；不會自動按 Enter。Windows 藍牙未開時啟動可能得到 WinError 10050；請先檢查系統藍牙開關，不要關閉安全選項或改走公司區網。
+使用 Python 3.10 以上。第三方相依包括 WebSocket、成熟 QR 與密碼學套件；不需要 Node runtime 或額外管理 QR 工具。
 
-`python receiver.py --bluetooth` attempts a guarded RFCOMM startup. It sets
-mandatory Windows link authentication/encryption socket options before binding;
-option errors abort startup. After binding to an assigned channel and listening,
-it registers an SDP record for UUID `9c8f8513-7d4d-4a70-82c7-11e1da28a041`
-via Windows `WSASetServiceW` (`NS_BTH`, `RNRSERVICE_REGISTER`). Registration
-failure closes the socket without accepting clients. On exit, it removes that
-record with `RNRSERVICE_DELETE`; removal errors are surfaced. The default
-Wi-Fi/WebSocket mode is unchanged. There is no persistent credential: the
-ephemeral console-generated code expires when the process stops (Ctrl+C).
+Wi-Fi 預設 port 8765，可用 `--port 8766` 改變。候選 IPv4 有多個時依主控台提示選擇一個；QR 只有單一目的位址，手機不自動試連其他網卡。Windows 防火牆僅允許可信任私人網路。
 
-On first successful Bluetooth code authentication, the receiver asks at its interactive
-console to authorize the displayed peer address. Type `yes` to pin that one
-phone; any other address is refused even with the current code. The address
-only (never the code or transcript) is stored atomically in the current user's
-`%LOCALAPPDATA%\TalkToAgent\bluetooth-device.json`. Without a readable store
-or interactive first-time consent, authorization fails closed. To revoke it,
-stop the receiver and run `python receiver.py --forget-bluetooth-device`;
-the next connection requires fresh console consent. Bluetooth sessions retain
-an initial 10-second authentication deadline but have no 60-second post-auth
-socket idle timeout. Connections are handled sequentially; 30-minute lock-screen
-survival, disconnect/reconnect and Windows-locked rejection still need separate
-real-device acceptance tests.
+藍牙啟動：
 
-Run the isolated tests with `cd windows_receiver; python -m unittest test_bluetooth -v`.
-Unit tests with an injected Winsock function verify the bound channel, SDP
-registration/removal and fail-closed listener behavior; other tests exercise
-framed authentication before text, per-ID ACKs, duplicate rejection and
-desktop-lock checks. On the paired SM-F7410 and this Windows host, real RFCOMM
-binding, SDP registration/removal, authorization, and a user-confirmed voice-to-paste
-operation have been exercised. That single successful operation does **not** prove
-30-minute background operation, lock handling, revocation or other devices work.
+```powershell
+.\.venv\Scripts\python.exe receiver.py --bluetooth
+```
 
-The SDP implementation follows Microsoft documentation for
-[Bluetooth service set values](https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-and-wsaqueryset-for-set-service),
-[Bluetooth registration and deletion](https://learn.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-and-wsasetservice),
-[WSAQUERYSETW](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/ns-winsock2-wsaquerysetw),
-[CSADDR_INFO](https://learn.microsoft.com/en-us/windows/win32/api/nspapi/ns-nspapi-csaddr_info),
-[SOCKADDR_BTH](https://learn.microsoft.com/en-us/windows/win32/api/ws2bth/ns-ws2bth-sockaddr_bth)
-and [WSASetServiceW](https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsasetservicew).
+先開啟 Windows 系統藍牙。單一可用 radio 直接使用，多個時按主控台提示選擇；沒有實體 radio 或只有無效地址時停止，不顯示不可用 QR。QR、listener 與 SDP 綁同一介面，安全 authentication／encryption 設定或 SDP 註冊失敗就停止，不能關閉安全選項作為修復。
 
+保持主控台開啟，Ctrl+C 停止。停止會使未使用邀請失效，但不撤銷已持久保存的應用授權。
 
-本機排錯紀錄：Windows 藍牙關閉時，即使裝置管理員顯示介面正常，RFCOMM `bind` 仍會得到 WinError 10050。Windows RFCOMM 伺服器必須以 `BT_PORT_ANY`（`0xffffffff`）而非 `0` 要求通道；`0` 是用戶端用途。`SOCKADDR_BTH` 必須採 Windows 30-byte packed 配置，否則 `WSASetServiceW` 會得到 10022。這些問題已在本機修正並分別驗證 SDP 註冊與移除；實機文字貼上由使用者確認。
+## 邀請操作
+
+依主控台提示使用：
+
+- `new`：明確產生當前通道的新邀請，立即使舊的未使用邀請失效；不必重啟。
+- `show`：重顯目前有效邀請，不延長原期限。若終端太窄，調大視窗、調整字型／縮放後重顯示；保留 QR 四周空白。
+- `revoke`：撤銷原手機，兩通道授權及現有連線一併失效。確認成功後才能為不同手機產生新邀請。
+
+邀請由 Receiver 判定 10 分鐘期限，僅成功授權時消耗一次；連線未成功可在期限內重掃／重試。過期、已消耗或刷新後的邀請無法首次授權。不要以重顯示當作刷新，也沒有自動刷新。
+
+Windows／Android 各自保存安全身分；重連不傳長期私鑰或舊邀請秘密。舊版只記住 MAC 的資料不會自動轉為授權，升級需重新掃碼。授權儲存不可讀時拒絕授權／輸入，不會默默重建成未授權。
+
+## 手機操作與文字示範
+
+1. 建置並安裝 App：
+
+   ```powershell
+   .\gradlew.bat :app:assembleDebug
+   android install --apks=app\build\outputs\apk\debug\app-debug.apk
+   ```
+
+   手機若已安裝不同簽章的 App，不要直接卸載而遺失設定；可用 `-PbluetoothTestApp=true` 建置獨立測試套件（見 [Android 語音說明](android-voice.md)）。
+2. 在 App 內按掃描，允許相機權限，對準終端 QR。沒有手動輸入 IP／port／授權碼、手選藍牙裝置或 QR 圖片備援。相機／附近裝置／通知權限拒絕時依提示到設定修復。
+3. 藍牙尚未配對時依 Android 與 Windows 的**系統**確認操作；成功且邀請仍有效後續接。不再要求 Windows 主控台 `yes`。取消則停止並重掃；若配對後邀請過期，在 Windows 產生新邀請，不解除已完成的系統配對。
+4. 授權成功後將游標放在 Windows 記事本空白文件，再傳一次測試文字。應只貼一次、無額外 Enter。僅取得 Receiver 授權不等於「輸入就緒」：語音還需要 Gemini 金鑰及麥克風權限。
+5. App／Receiver 重啟後，App 顯示原電腦與已授權通道，由使用者按「連線」恢復，不用重掃，也不在開啟 App 時自動連線。Wi-Fi 每次文字後需再次按連線；藍牙工作階段斷線保留退避重連，手動中斷後不自動連線。
+6. 連線中不能掃新邀請，須先結束口述及主動中斷。已送文字無法確認時仍保留「輸入結果不明」，不能因切換而清除或補送。
+
+成功授權回覆遺失時，手機可用已同步保存的 pending 目標與原私鑰恢復；若 Receiver 未保存授權則需要重掃。不會讓第二支手機重用消耗過的邀請。畫面區分已授權目標與 pending，正常「連線」優先使用原授權，另外可按「恢復上次未完成授權」嘗試 pending；失敗的位址更新不會遮蔽原授權目標。
+
+系統藍牙配對等待在旋轉／折疊造成畫面重建時保留於記憶體，重建後重新查指定裝置的實際系統配對狀態並續接。若 App 程序結束，未完成邀請不恢復、不在冷啟動自動連線，提示產生新邀請重掃；QR 秘密不寫入畫面狀態或磁碟。
+
+電腦 IP 改變時，Receiver 在新位址產生更新邀請，原手機掃描並驗證雙方身分後更新目標；不撤銷原授權、不自動網路探索。
+
+## 測試與驗收界線
+
+```powershell
+.\windows_receiver\.venv\Scripts\python.exe -m unittest discover -s windows_receiver -p "test_*.py" -v
+.\gradlew.bat :app:compileDebugJavaWithJavac :app:testDebugUnitTest
+.\windows_receiver\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+以上從專案根目錄執行。Receiver 測試使用真實本機 WebSocket、可控 framed RFCOMM 與記錄用貼上動作，不操作目前桌面。Android 測試在掃描結果到授權／連線的行為邊界驗證。`tests` 的跨平台測試需要 JDK，並在 Gradle 解析 Gson 後執行；它以實際 Java coordinator／JCA 對接 Python Receiver／cryptography 的真實本機 WebSocket，檢查首次授權、成功回覆遺失恢復及明確定稿，不替代 Android Keystore／相機或 RFCOMM 實機驗收。跨平台契約見 [授權協定](authorization-protocol.md) 與共用向量。
+
+舊版曾在已配對 SM-F7410 與 Windows 完成一次使用者確認的語音貼上，**不能當作新 QR 流程的實機證據**。新流程的終端字型／縮放、實際 URI 長度、未配對藍牙雙端確認／續接、取消／過期、兩端重啟、撤銷及鎖定拒絕仍需逐項實機記錄。硬體驗收清單見 [QR 驗收](qr-acceptance.md)。
+
+Windows RFCOMM 伺服器用 `BT_PORT_ANY` 要求通道（不是 client-only port 0）；`SOCKADDR_BTH` 使用 Windows 30-byte packed 配置，SDP 退出時移除註冊。這些既有 API 修正不保證所有 radio／驅動及未配對續接都可用。

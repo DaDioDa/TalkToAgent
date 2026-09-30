@@ -12,7 +12,7 @@ interface FinalTextTransport {
         void onFailure(String reason);
     }
 
-    void authenticate(String ipAddress, int port, String pairingCode);
+    void authenticate(ConnectionCoordinator coordinator);
 
     void sendFinalText(String text);
 

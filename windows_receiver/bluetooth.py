@@ -1,10 +1,6 @@
 """Fail-closed Windows RFCOMM transport and framed Bluetooth protocol."""
-import hmac
-import os
-import re
-import tempfile
-from pathlib import Path
 import json
+import threading
 import socket
 import struct
 import sys
@@ -13,7 +9,7 @@ import uuid
 from contextlib import contextmanager
 from ctypes import wintypes
 
-from receiver import MAX_FRAME_BYTES, _valid_final_text, _reject_duplicate_keys
+from authorization import MAX_FRAME_BYTES, Rejected, parse_message
 
 SERVICE_UUID = '9c8f8513-7d4d-4a70-82c7-11e1da28a041'
 
@@ -41,12 +37,9 @@ def read_message(stream):
     if len(data) != size:
         raise EOFError('incomplete frame')
     try:
-        message = json.loads(data.decode('utf-8', 'strict'), object_pairs_hook=_reject_duplicate_keys)
-    except (UnicodeError, ValueError) as exc:
+        return parse_message(data.decode('utf-8', 'strict'))
+    except (UnicodeError, Rejected) as exc:
         raise ValueError('invalid message') from exc
-    if not isinstance(message, dict):
-        raise ValueError('invalid message')
-    return message
 
 
 def write_message(stream, message):
@@ -55,56 +48,6 @@ def write_message(stream, message):
         raise ValueError('invalid frame size')
     stream.write(len(data).to_bytes(4, 'big') + data)
     stream.flush()
-
-
-class BluetoothSession:
-    """One authorized connection; operation IDs are scoped to this connection."""
-
-    def __init__(self, device, authorized, unlocked, paste):
-        self.device = device
-        self.authorized = authorized
-        self.unlocked = unlocked
-        self.paste = paste
-        self.seen = set()
-
-    def receive(self, message):
-        operation = message.get('id') if isinstance(message, dict) else None
-        response = {'type': 'error'}
-        if isinstance(operation, str) and 0 < len(operation) <= 128 and operation.isascii():
-            response['id'] = operation
-        else:
-            response['code'] = 'invalid_message'
-            return response
-        if operation in self.seen:
-            response['code'] = 'duplicate_operation'
-            return response
-        self.seen.add(operation)  # No retry after ambiguous paste outcomes.
-        if not self.authorized(self.device):
-            response['code'] = 'unauthorized'
-        elif (set(message) != {'type', 'id', 'text'} or message['type'] != 'final_text'
-              or not _valid_final_text(message['text'])):
-            response['code'] = 'invalid_message'
-        elif not self.unlocked():
-            response['code'] = 'session_locked'
-        else:
-            try:
-                self.paste(message['text'])
-            except Exception:
-                response['code'] = 'paste_failed'
-            else:
-                return {'type': 'pasted', 'id': operation}
-        return response
-
-
-def authenticate(message, expected_code):
-    if (not isinstance(message, dict) or set(message) != {'type', 'pairingCode'}
-            or message['type'] != 'authenticate'
-            or not isinstance(message['pairingCode'], str)):
-        return {'type': 'error', 'code': 'invalid_message'}
-    code = message['pairingCode']
-    if not code.isascii() or not hmac.compare_digest(code, expected_code):
-        return {'type': 'authentication_failed'}
-    return {'type': 'authenticated'}
 
 
 # ws2bth.h: optname is signed because CPython converts it to a C int.
@@ -151,106 +94,127 @@ def session_unlocked():
         return False
 
 
-def _authorization_path():
-    root = os.environ.get('LOCALAPPDATA')
-    if not root:
-        raise OSError('LOCALAPPDATA is unavailable')
-    return Path(root) / 'TalkToAgent' / 'bluetooth-device.json'
-
-
-def _pinned_device():
-    path = _authorization_path()
-    try:
-        data = json.loads(path.read_text(encoding='utf-8'))
-    except FileNotFoundError:
-        return None
-    if not isinstance(data, dict) or set(data) != {'address'} or not _valid_address(data['address']):
-        raise ValueError('invalid Bluetooth authorization')
-    return data['address']
-
-
-def _valid_address(address):
-    return isinstance(address, str) and re.fullmatch(r'[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}', address) is not None
-
-
-def _approve_device(address):
-    if not sys.stdin.isatty():
-        return False
-    try:
-        return input(f'Authorize Bluetooth device {address} for text input? Type yes: ').strip().lower() == 'yes'
-    except (EOFError, OSError):
-        return False
-
-
-def _authorize_device(address, approve):
-    if not _valid_address(address):
-        return False
-    address = address.upper()
-    pinned = _pinned_device()
-    if pinned is not None:
-        return pinned.upper() == address
-    if not approve(address):
-        return False
-    path = _authorization_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
-                                         prefix='.bluetooth-', delete=False) as stream:
-            temporary = stream.name
-            json.dump({'address': address}, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if temporary and os.path.exists(temporary):
-            os.unlink(temporary)
-    return True
-
-
-def forget_bluetooth_device():
-    _authorization_path().unlink(missing_ok=True)
-
-
-def serve_client(connection, address, pairing_code, paste, unlocked=session_unlocked, approve=_approve_device):
-    """One authenticated connection. An ID is never retried on this connection."""
-    connection.settimeout(10)
-    # Python's RFCOMM accept() returns a (Bluetooth address, channel) pair.
-    peer = address[0] if isinstance(address, tuple) and len(address) == 2 else address
-    with connection.makefile('rwb', buffering=0) as stream:
+def serve_client(connection, authorization, paste, unlocked=session_unlocked):
+    """Shared handshake and durable gate; no MAC pin or console approval."""
+    token = object()
+    def close():
         try:
-            answer = authenticate(read_message(stream), pairing_code)
-            if answer['type'] == 'authenticated':
-                try:
-                    if not _authorize_device(peer, approve):
-                        answer = {'type': 'authentication_failed'}
-                except (OSError, ValueError, TypeError):
-                    answer = {'type': 'authentication_failed'}
-            write_message(stream, answer)
-            if answer['type'] != 'authenticated':
-                return
-            connection.settimeout(None)  # Keep the session usable after 30 minutes idle.
-            def authorized(device):
-                try:
-                    return _valid_address(device) and _pinned_device().upper() == device.upper()
-                except (OSError, ValueError, TypeError, AttributeError):
-                    return False
-            session = BluetoothSession(peer, authorized, unlocked, paste)
-            while True:
-                write_message(stream, session.receive(read_message(stream)))
-        except (EOFError, OSError, ValueError):
-            return
+            connection.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        connection.close()
+    try:
+        connection.settimeout(10)
+        with connection.makefile('rwb', buffering=0) as stream:
+            try:
+                authorization.register(token, close)
+                pending, challenge = authorization.challenge(read_message(stream), 'bt')
+                write_message(stream, challenge)
+                session, answer = authorization.authorize(pending, read_message(stream))
+                write_message(stream, answer)
+                connection.settimeout(None)  # Idle time doesn't revoke a session.
+                while True:
+                    response = session.receive(read_message(stream), paste, unlocked)
+                    write_message(stream, response)
+            except Rejected as exc:
+                write_message(stream, dict(v=1, type='error', code=exc.code))
+            except ValueError:
+                write_message(stream, dict(v=1, type='error', code='invalid_message'))
+            except (EOFError, OSError):
+                pass
+            except Exception:
+                write_message(stream, dict(v=1, type='error', code='internal_error'))
+    except (EOFError, OSError):
+        pass
+    finally:
+        authorization.unregister(token)
+        close()
 
 
-def open_listener(socket_factory=socket.socket):
+def select_radio(radios, requested=None):
+    """Never choose an arbitrary adapter when several are installed."""
+    if requested is not None:
+        if requested not in {address for address, _ in radios}:
+            raise ValueError('requested radio is unavailable')
+        return requested
+    if len(radios) != 1:
+        raise ValueError('select exactly one available physical radio')
+    return radios[0][0]
+
+
+def enumerate_radios():
+    """BluetoothFindFirst/NextRadio + GetRadioInfo, closing both handle types.
+
+    ABI: https://learn.microsoft.com/windows/win32/api/bluetoothapis/ns-bluetoothapis-bluetooth_radio_info
+    """
+    if sys.platform != 'win32':
+        raise OSError('Windows Bluetooth is required')
+    class Params(ctypes.Structure):
+        _fields_ = [('dwSize', wintypes.DWORD)]
+    class Info(ctypes.Structure):
+        _fields_ = [('dwSize', wintypes.DWORD), ('address', ctypes.c_uint64),
+                    ('name', wintypes.WCHAR * 248), ('deviceClass', wintypes.ULONG),
+                    ('subversion', wintypes.USHORT), ('manufacturer', wintypes.USHORT)]
+    api = ctypes.WinDLL('bthprops.cpl', use_last_error=True)
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    api.BluetoothFindFirstRadio.argtypes = [ctypes.POINTER(Params), ctypes.POINTER(wintypes.HANDLE)]
+    api.BluetoothFindFirstRadio.restype = wintypes.HANDLE
+    api.BluetoothFindNextRadio.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.HANDLE)]
+    api.BluetoothFindNextRadio.restype = wintypes.BOOL
+    api.BluetoothGetRadioInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Info)]
+    api.BluetoothGetRadioInfo.restype = wintypes.DWORD
+    api.BluetoothFindRadioClose.argtypes = [wintypes.HANDLE]
+    api.BluetoothFindRadioClose.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = wintypes.HANDLE()
+    params = Params(ctypes.sizeof(Params))
+    enumeration = api.BluetoothFindFirstRadio(ctypes.byref(params), ctypes.byref(handle))
+    if not enumeration:
+        error = ctypes.get_last_error()
+        if error == 259:  # ERROR_NO_MORE_ITEMS
+            return []
+        raise OSError(error, 'radio enumeration failed')
+    radios = []
+    try:
+        while True:
+            try:
+                info = Info()
+                info.dwSize = ctypes.sizeof(Info)
+                error = api.BluetoothGetRadioInfo(handle, ctypes.byref(info))
+                if error:
+                    raise OSError(error, 'radio information failed')
+                address = f'{info.address:012X}'
+                from invitation import validate_target
+                validate_target('bt', 'bt:' + address)
+                radios.append((address, info.name))
+            finally:
+                kernel.CloseHandle(handle)
+            if not api.BluetoothFindNextRadio(enumeration, ctypes.byref(handle)):
+                error = ctypes.get_last_error()
+                if error != 259:
+                    raise OSError(error, 'radio enumeration failed')
+                break
+    finally:
+        api.BluetoothFindRadioClose(enumeration)
+    return sorted(set(radios))
+
+
+def open_listener(radio, socket_factory=socket.socket):
     """Bind with mandatory link security; never downgrade on option failure."""
     if sys.platform != 'win32':
         raise OSError('Windows Bluetooth RFCOMM is required')
+    from invitation import validate_target
+    validate_target('bt', 'bt:' + radio)
+    address = ':'.join(radio[i:i+2] for i in range(0, 12, 2))
     listener = socket_factory(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
     try:
         for option in (SO_BTH_AUTHENTICATE, SO_BTH_ENCRYPT):
             listener.setsockopt(SOL_RFCOMM, option, struct.pack('I', 1))
-        listener.bind(('00:00:00:00:00:00', BT_PORT_ANY))
+        listener.bind((address, BT_PORT_ANY))
+        bound, channel = listener.getsockname()
+        if bound.replace(':', '').upper() != radio or type(channel) is not int or not 1 <= channel <= 30:
+            raise OSError('RFCOMM bound endpoint does not match selected radio')
         return listener
     except BaseException:
         listener.close()
@@ -309,7 +273,7 @@ def register_rfcomm_service(listener, service_uuid, wsa_set_service=None,
     if not isinstance(channel, int) or not 1 <= channel <= 30:
         raise ValueError('RFCOMM listener has no assigned channel')
     bt_addr = int(address.replace(':', ''), 16)
-    if not 0 <= bt_addr < 1 << 48:
+    if not 0 < bt_addr < (1 << 48) - 1:
         raise ValueError('invalid Bluetooth address')
     if wsa_set_service is None:
         ws2 = ctypes.WinDLL('ws2_32')
@@ -345,15 +309,51 @@ def register_rfcomm_service(listener, service_uuid, wsa_set_service=None,
         set_service(2)  # RNRSERVICE_DELETE; DEREGISTER is invalid for Bluetooth.
 
 
-def run_bluetooth(pairing_code, paste, listener_factory=open_listener,
-                  register_service=register_rfcomm_service):
-    """Register SDP before accepting; registration failure closes the listener."""
-    with listener_factory() as listener:
-        listener.listen(1)
+def run_bluetooth(authorization, paste, listener_factory=open_listener,
+                  register_service=register_rfcomm_service, radios=None,
+                  display=None, console=True):
+    """Invitation, listener and SDP share one explicitly selected physical radio."""
+    from receiver import select_target, display_invitation, console_session
+    from invitation import validate_target
+    if radios is None:
+        radios = enumerate_radios()
+    for address, name in radios:
+        validate_target('bt', 'bt:' + address)
+    selected = select_target(radios, 'physical Bluetooth radio')
+    radio = select_radio(radios, selected[0])
+    display = display or display_invitation
+    workers = []
+    clients = set()
+    clients_lock = threading.Lock()
+    def work(connection):
+        try:
+            serve_client(connection, authorization, paste)
+        finally:
+            with clients_lock:
+                clients.discard(connection)
+    with listener_factory(radio) as listener:
+        listener.listen(8)
         with register_service(listener, SERVICE_UUID):
-            print('Bluetooth RFCOMM listening; temporary pairing code:', pairing_code)
-            print('Stop with Ctrl+C to revoke the code and close the service.')
-            while True:
-                connection, address = listener.accept()
-                with connection:
-                    serve_client(connection, address, pairing_code, paste)
+            authorization.set_target('bt', 'bt:' + radio)
+            print(f'Secure Bluetooth RFCOMM listening on {radio}.')
+            display(authorization.new_invitation('bt'))
+            try:
+                with console_session(authorization, 'bt', display, console):
+                    while True:
+                        connection, _ = listener.accept()
+                        with clients_lock:
+                            clients.add(connection)
+                        worker = threading.Thread(target=work, args=(connection,), daemon=True)
+                        workers = [thread for thread in workers if thread.is_alive()]
+                        workers.append(worker)
+                        worker.start()
+            finally:
+                with clients_lock:
+                    for connection in list(clients):
+                        try:
+                            connection.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+                        connection.close()
+                for worker in workers:
+                    worker.join(11)

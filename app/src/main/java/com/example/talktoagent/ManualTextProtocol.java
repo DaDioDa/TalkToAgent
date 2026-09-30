@@ -13,6 +13,12 @@ final class ManualTextProtocol {
         return "{\"type\":\"authenticate\",\"pairingCode\":" + quote(pairingCode) + "}";
     }
 
+    static String finalText(String id, String text) {
+        if (id == null || !id.matches("[\\x00-\\x7F]{1,128}") || !isValidFinalText(text))
+            throw new IllegalArgumentException("Invalid final text/id");
+        return "{\"v\":1,\"type\":\"final_text\",\"id\":" + quote(id) + ",\"text\":" + quote(text) + "}";
+    }
+
     static String finalText(String text) {
         if (!isValidFinalText(text)) {
             throw new IllegalArgumentException("Final text must be nonblank and at most 4 KiB of UTF-8.");
@@ -69,7 +75,7 @@ final class ManualTextProtocol {
         return true;
     }
 
-    private static String quote(String value) {
+    static String quote(String value) {
         StringBuilder result = new StringBuilder(value.length() + 2).append('"');
         for (int index = 0; index < value.length(); index++) {
             char character = value.charAt(index);

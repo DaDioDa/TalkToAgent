@@ -1,0 +1,56 @@
+{
+  "valid": [
+    {
+      "uri": "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+      "channel": "wifi",
+      "target": "wifi:192.168.1.20:8765"
+    },
+    {
+      "uri": "talktoagent://invite/1?c=bt&a=AABBCCDDEEFF&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+      "channel": "bt",
+      "target": "bt:AABBCCDDEEFF"
+    }
+  ],
+  "invalid": [
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM&x=1",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM&c=wifi",
+    "talktoagent://invite/2?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=ble&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.001.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=0.0.0.0&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=08765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=65536&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM#fragment",
+    "talktoagent://invite/1?c=%77ifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "https://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=wifi&h=192.168.1.20&p=8765&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=bt&a=000000000000&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "talktoagent://invite/1?c=bt&a=aabbccddeeff&i=AAECAwQFBgcICQoLDA0ODw&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8&r=XNJS-wzokyQ2-vjM0QQJgbie5K1rn-niorfnGqyyfNM",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ],
+  "crypto": {
+    "note": "TEST ONLY fixed private scalars 1 (Receiver), 2 (phone); never production keys. Static DER signatures verify cross-platform transcript encoding.",
+    "receiverKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaxfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpZP40Li_hp_m47n60p8D54WK84zV2sxXs7LtkBoN79R9Q",
+    "phoneKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXgHd1UQ247QQCk9msafdDDbun2t5jzpgimeBLedInhz0Q",
+    "transcript": [
+      "1",
+      "invite",
+      "wifi",
+      "wifi:192.168.1.20:8765",
+      "AAECAwQFBgcICQoLDA0ODw",
+      "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfPJ7GI0DT36KUjgDBLUaw8CJaeJ38hs1pgtI_EdmmXgHd1UQ247QQCk9msafdDDbun2t5jzpgimeBLedInhz0Q",
+      "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+      "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaxfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpZP40Li_hp_m47n60p8D54WK84zV2sxXs7LtkBoN79R9Q",
+      "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+      "0"
+    ],
+    "secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "challengePackedHex": "0000001272656365697665722d6368616c6c656e6765000000013100000006696e76697465000000047769666900000016776966693a3139322e3136382e312e32303a383736350000001641414543417751464267634943516f4c4441304f44770000007a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414566504a37474930445433364b556a6744424c55617738434a61654a3338687331706774495f45646d6d586748643155513234375151436b396d73616664444462756e3274356a7a7067696d65424c6564496e687a30510000002b494345694979516c4a69636f4b536f724c4330754c7a41784d6a4d304e5459334f446b364f7a7739506a380000007a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456178665238754573516b6634764f626c59365241386e634466594574367a4f67394b45355264695977705a5034304c695f68705f6d34376e36307038443534574b38347a563273785873374c746b426f4e37395239510000002b5145464351305246526b64495355704c5445314f54314252556c4e5556565a5857466c6157317864586c380000000130",
+    "challengeSignature": "MEUCIFKDUNA9ck13ziR0BDSbg3PCAPq8iiZBOxLPaygJh1MbAiEA-8jnNnWp6hgSvpYPQUuEy6FLZvtroFJYfBMMKHMlM-0",
+    "phoneSignature": "MEYCIQC-LL6fLZxKCsQ9leGluZXK_r9RZpvhleTaIO3XlD2pPgIhAIUhHVPhBLGr6Y8W5i_oBpHLFNAqdbWTaHTFjUWnmGo2",
+    "inviteProof": "NOlBl9xrD68MLJacTV0eYOoytm2V8MzpYeCNwWY5x-k",
+    "channels": "wifi",
+    "authorizedSignature": "MEUCIBi8oo7AW0PonKDMOB59dioHL4Cj-y9NstzV-engWHqDAiEAtieIJWBRMCeJXv2-FAKNdhWzRVKs707slHBZTkyOAW8"
+  }
+}

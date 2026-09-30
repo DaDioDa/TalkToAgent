@@ -6,9 +6,8 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.json.JSONObject;
 
-/** Secure paired-device RFCOMM transport. Caller owns lifecycle and must supply a paired device. */
+/** Secure RFCOMM only; specified device must have finished system bonding before connection. */
 final class BluetoothFinalTextTransport {
     static final UUID SERVICE_UUID = UUID.fromString("9c8f8513-7d4d-4a70-82c7-11e1da28a041");
     interface Listener {
@@ -16,95 +15,73 @@ final class BluetoothFinalTextTransport {
         void authenticationFailed();
         void pasted(String id);
         void rejected(String id, String code);
-        /** An in-flight send has an unknown outcome after connection loss. */
         void disconnected(String pendingId);
     }
-
     private final Listener listener;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
-    private BluetoothSocket socket;
-    private volatile String pendingId;
-    private volatile boolean authenticated;
+    private volatile BluetoothSocket socket;
     private volatile boolean closed;
-
+    private ConnectionCoordinator flow;
     BluetoothFinalTextTransport(Listener listener) { this.listener = listener; }
-
-    void connect(BluetoothDevice device, String pairingCode) {
-        if (device == null || pairingCode == null || pairingCode.isEmpty()) throw new IllegalArgumentException("Pairing required");
+    void connect(BluetoothDevice device, ConnectionCoordinator coordinator) {
+        if (device == null || coordinator == null) throw new IllegalArgumentException("Authorization required");
+        flow = coordinator;
         worker.execute(() -> {
             try {
+                if (device.getBondState() != BluetoothDevice.BOND_BONDED) throw new IOException("Bond required");
+                String hello;
+                synchronized (this) { if (closed) return; hello = flow.begin(); }
                 BluetoothSocket connected = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
                 synchronized (this) {
                     if (closed) { connected.close(); return; }
                     socket = connected;
                 }
-                connected.connect();
-                BluetoothFrames.write(connected.getOutputStream(), new JSONObject()
-                        .put("type", "authenticate").put("pairingCode", pairingCode).toString());
+                connected.connect(); BluetoothFrames.write(connected.getOutputStream(), hello);
                 while (!closed) {
-                    JSONObject response = new JSONObject(BluetoothFrames.read(connected.getInputStream()));
-                    String type = response.optString("type");
-                    if (!authenticated) {
-                        if ("authenticated".equals(type) && response.length() == 1) {
-                            authenticated = true;
-                            listener.authenticated();
-                        } else if ("authentication_failed".equals(type) && response.length() == 1) {
-                            listener.authenticationFailed();
+                    String wire = BluetoothFrames.read(connected.getInputStream());
+                    if (closed) break;
+                    ConnectionCoordinator.Result result = flow.receive(wire);
+                    switch (result.event) {
+                        case PROOF: BluetoothFrames.write(connected.getOutputStream(), result.outbound); break;
+                        case AUTHORIZED: listener.authenticated(); break;
+                        case PASTED: listener.pasted(result.id); break;
+                        case REJECTED:
+                            if (result.id == null) { listener.authenticationFailed(); return; }
+                            listener.rejected(result.id, result.code);
+                            if (!flow.ready()) return;
                             break;
-                        } else break;
-                    } else if (pendingId != null && pendingId.equals(response.optString("id"))) {
-                        String id = pendingId;
-                        if ("pasted".equals(type) && response.length() == 2) {
-                            pendingId = null;
-                            listener.pasted(id);
-                        } else if ("error".equals(type) && response.opt("code") instanceof String) {
-                            pendingId = null;
-                            listener.rejected(id, response.optString("code"));
-                        } else break;
-                    } else break; // Never attribute a stale or uncorrelated result to a new send.
+                    }
                 }
+            } catch (SecurityException permissionRevoked) {
+                // Permissions can be revoked after the UI check. Stop instead of retrying.
+                listener.authenticationFailed();
             } catch (Exception ignored) {
-                // Disconnect after a write cannot prove whether the receiver pasted the text.
+                // Never log wire data or exceptions containing invitations. Never retry text.
             } finally {
-                String unknown = pendingId;
-                authenticated = false;
-                pendingId = null;
+                String unknown = flow.pendingId();
+                if (!closed) flow.disconnected();
                 closeSocket();
                 if (!closed) listener.disconnected(unknown);
             }
         });
     }
-
     void send(String id, String text) {
-        if (id == null || id.isEmpty() || !ManualTextProtocol.isValidFinalText(text))
-            throw new IllegalArgumentException("Invalid final text or id");
+        if (!ManualTextProtocol.isValidFinalText(text)) throw new IllegalArgumentException("Invalid final text");
         writer.execute(() -> {
-            if (!authenticated || pendingId != null || closed) {
-                listener.rejected(id, "not_connected");
-                return;
-            }
-            pendingId = id; // Set before writing: a partial write is an unknown outcome.
+            if (closed || !flow.ready() || flow.pending()) { listener.rejected(id, "not_connected"); return; }
             try {
-                BluetoothFrames.write(socket.getOutputStream(), new JSONObject()
-                        .put("type", "final_text").put("id", id).put("text", text).toString());
-            } catch (Exception failure) {
-                closeSocket();
-            }
+                String frame = flow.finalText(id, text); // Mark unknown outcome before any partial write.
+                BluetoothFrames.write(socket.getOutputStream(), frame);
+            } catch (Exception failure) { closeSocket(); }
         });
     }
-
-    void close() {
-        closed = true;
-        closeSocket();
-        worker.shutdownNow();
-        writer.shutdownNow();
+    synchronized void close() {
+        closed = true; closeSocket();
+        if (flow != null) flow.disconnected();
+        worker.shutdownNow(); writer.shutdownNow();
     }
-
     private synchronized void closeSocket() {
-        if (socket != null) {
-            try { socket.close(); } catch (IOException ignored) { }
-            socket = null;
-        }
+        if (socket != null) { try { socket.close(); } catch (IOException ignored) { } socket = null; }
     }
 }

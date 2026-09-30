@@ -6,7 +6,7 @@ import android.content.*;
 import android.os.*;
 import java.util.UUID;
 
-/** Session-scoped foreground connection; no transcript or pairing code is persisted to disk. */
+/** Explicit session foreground connection; resumes durable authorization, never resends text. */
 public final class BluetoothConnectionService extends Service {
     static final String DISCONNECT = "com.example.talktoagent.DISCONNECT";
     interface Observer { void update(boolean ready, boolean pending, String status); }
@@ -14,7 +14,10 @@ public final class BluetoothConnectionService extends Service {
     private final Handler main = new Handler(Looper.getMainLooper());
     private BluetoothFinalTextTransport transport;
     private BluetoothDevice device;
-    private String code;
+    private ConnectionCoordinator flow;
+    private AuthorizationRepository.Endpoint endpoint;
+    private boolean everAuthorized;
+    private final java.util.concurrent.ExecutorService authorizationWorker = java.util.concurrent.Executors.newSingleThreadExecutor();
     private Observer observer;
     private boolean running;
     private boolean ready;
@@ -39,11 +42,13 @@ public final class BluetoothConnectionService extends Service {
         return START_NOT_STICKY;
     }
     void observe(Observer value) { observer = value; publish(); }
-    void connect(BluetoothDevice selected, String pairingCode) {
-        boolean uncertain = outcomeUnknown || pending;
+    ConnectionCoordinator coordinator() { return running ? flow : null; }
+    boolean busy() { return running; }
+    void connect(BluetoothDevice selected, ConnectionCoordinator coordinator) {
+        boolean uncertain = outcomeUnknown || pending || coordinator.outcomeUnknown();
         disconnectConnection();
         device = selected;
-        code = pairingCode;
+        flow = coordinator; endpoint = coordinator.selected(); everAuthorized = false;
         running = true;
         outcomeUnknown = uncertain;
         retrySeconds = 2;
@@ -56,12 +61,22 @@ public final class BluetoothConnectionService extends Service {
     }
     private void attempt() {
         if (!running) return;
+        NotificationManager notifications = getSystemService(NotificationManager.class);
+        NotificationChannel channel = ensureChannel(notifications);
+        if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                || !notifications.areNotificationsEnabled() || channel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+            outcomeUnknown |= pending;
+            disconnectConnection(); status = "藍牙或通知權限不可用；連線已停止，請在設定修復後按連線";
+            publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return;
+        }
         int attempt = ++generation;
         if (transport != null) transport.close();
+        if (flow.ready() || flow.attempting()) flow.disconnected();
         BluetoothFinalTextTransport current = new BluetoothFinalTextTransport(new BluetoothFinalTextTransport.Listener() {
             @Override public void authenticated() { main.post(() -> {
                 if (attempt != generation) return;
-                ready = true;
+                ready = true; everAuthorized = true;
                 retrySeconds = 2;
                 status = outcomeUnknown
                         ? "藍牙已重連；上一筆輸入結果不明，請先檢查電腦再決定是否重送"
@@ -70,20 +85,18 @@ public final class BluetoothConnectionService extends Service {
             }); }
             @Override public void authenticationFailed() { main.post(() -> {
                 if (attempt != generation) return;
-                status = "應用配對碼錯誤；請重新連線";
-                disconnectConnection(); publish(); stopSelf();
+                status = "應用授權被拒絕；請取得新邀請並重掃";
+                disconnectConnection(); publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
             }); }
             @Override public void pasted(String id) { main.post(() -> {
                 if (attempt != generation) return;
                 pending = false;
-                outcomeUnknown = false;
-                status = "Receiver 已完成貼上動作；不保證目標欄位接受文字";
+                status = "Receiver 已完成貼上動作；不保證目標欄位接受文字" + (outcomeUnknown ? "；較早一筆輸入結果仍不明" : "");
                 publish();
             }); }
             @Override public void rejected(String id, String error) { main.post(() -> {
                 if (attempt != generation) return;
                 pending = false;
-                outcomeUnknown = false;
                 if ("session_locked".equals(error)) {
                     ready = false;
                     status = "Windows 已鎖定或無法輸入；請解鎖後重新連線，未自動補送";
@@ -95,17 +108,28 @@ public final class BluetoothConnectionService extends Service {
             @Override public void disconnected(String unknownId) { main.post(() -> {
                 if (attempt != generation || !running) return;
                 ready = false;
-                outcomeUnknown |= unknownId != null || pending;
+                outcomeUnknown |= unknownId != null || pending || flow.outcomeUnknown();
                 pending = false;
                 status = outcomeUnknown ? "輸入結果不明；先查看電腦再決定是否重送；正在重連但不補送" : "藍牙已斷線；正在重連（不補送）";
                 publish();
                 int delay = retrySeconds;
                 retrySeconds = Math.min(60, retrySeconds * 2);
-                main.postDelayed(() -> { if (attempt == generation && running) attempt(); }, delay * 1000L);
+                // Initial invitation failures stop: there is no established session to retry.
+                if (!everAuthorized) {
+                    status = "連線或授權未完成；可按連線恢復 pending 授權，若被拒絕請重掃";
+                    disconnectConnection(); publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return;
+                }
+                main.postDelayed(() -> {
+                    if (attempt != generation || !running) return;
+                    flow.prepareResume(endpoint, authorizationWorker, command -> main.post(command), new ConnectionCoordinator.PreparationListener() {
+                        @Override public void prepared() { if (attempt == generation && running) attempt(); }
+                        @Override public void failed() { if (attempt == generation && running) disconnect(); }
+                    });
+                }, delay * 1000L);
             }); }
         });
         transport = current;
-        try { current.connect(device, code); }
+        try { current.connect(device, flow); }
         catch (RuntimeException failure) { status = "藍牙連線失敗：請檢查權限及配對"; disconnect(); }
     }
     boolean send(String text) {
@@ -126,7 +150,7 @@ public final class BluetoothConnectionService extends Service {
         ready = false;
         pending = false;
         if (transport != null) { transport.close(); transport = null; }
-        code = null;
+        if (flow != null) flow.cancelPreparation();
         device = null;
     }
     private void publish() {
@@ -140,5 +164,5 @@ public final class BluetoothConnectionService extends Service {
                 .setContentTitle("TalkToAgent 藍牙輸入").setContentText(status)
                 .setOngoing(true).addAction(new Notification.Action.Builder(null, "中斷連線", action).build()).build();
     }
-    @Override public void onDestroy() { disconnectConnection(); super.onDestroy(); }
+    @Override public void onDestroy() { outcomeUnknown |= pending; disconnectConnection(); authorizationWorker.shutdownNow(); super.onDestroy(); }
 }
