@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TalkToAgent · 三種操作原型</title>
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <!-- Disposable standalone prototype: three lower-screen interactions, ?variant=A/B/C. Never included in the Android build. -->
+  <header class="demo-heading"><strong>TalkToAgent / 操作原型</strong><span>灰階模擬 · 非正式 App</span></header>
+  <main>
+    <section class="phone" aria-label="模擬 App 畫面" data-variant="A">
+      <header class="app-header">
+        <button id="connection" class="connection"><span aria-hidden="true" id="connection-dot">●</span> <span id="connection-label">書桌電腦 · 已連線</span><span aria-hidden="true"> ›</span></button>
+        <button id="settings" class="quiet" aria-label="開啟設定">設定</button>
+      </header>
+      <div class="status" role="status" aria-live="polite" aria-atomic="true">
+        <div id="status-symbol" aria-hidden="true">○</div>
+        <h1 id="status-title">輸入就緒</h1>
+        <p id="status-detail">點一下開始，再點一下結束。<br>轉錄定稿後自動送往電腦。</p>
+        <small id="haptic-cue">開始與結束會顯示輕震提示</small>
+      </div>
+      <button id="recent" class="recent quiet">查看最近轉錄</button>
+      <div class="action-area">
+        <button id="primary" class="primary"><span class="action-icon" aria-hidden="true">●</span><span id="primary-label">開始說話</span><small id="primary-hint">點一下開始</small></button>
+        <button id="cancel" class="cancel" disabled>取消<br><small>丟棄本次</small></button>
+      </div>
+    </section>
+    <aside class="instrumentation" aria-label="原型控制台（不屬於 App）">
+      <details>
+        <summary>原型控制台 <small>非 App 操作</small></summary>
+        <p>選擇下一次結束錄音的模擬結果；不會使用麥克風、網路接收器或剪貼簿。</p>
+        <label for="outcome">下一次結果</label>
+        <select id="outcome"><option value="completed">貼上操作完成</option><option value="unknown">輸入結果不明</option><option value="disconnected">傳送期間斷線</option></select>
+        <div class="demo-buttons"><button id="disconnect">模擬斷線</button><button id="reset">重設模擬</button></div>
+        <label class="checkbox"><input id="vibrate" type="checkbox"> 嘗試瀏覽器震動（裝置可能不支援）</label>
+        <output id="state-readout"></output>
+      </details>
+      <p class="limitations">僅為點擊模擬。原生輕震、握持誤觸與單手手感仍需實機驗證。<br>「貼上操作完成」不代表目標程式已接受文字。</p>
+    </aside>
+  </main>
+  <nav class="prototype-switcher" aria-label="原型版本切換（不屬於 App）">
+    <button id="previous" aria-label="上一個原型">←</button><div><small>比較原型</small><strong id="variant-label">A · 下方大圓鈕</strong></div><button id="next" aria-label="下一個原型">→</button>
+  </nav>
+  <dialog id="panel" aria-labelledby="panel-title">
+    <header><h2 id="panel-title"></h2><button id="close-panel" aria-label="關閉面板">關閉</button></header>
+    <div id="panel-body"></div>
+  </dialog>
+</body>
+</html>

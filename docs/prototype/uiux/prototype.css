@@ -1,0 +1,64 @@
+* { box-sizing: border-box; }
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #222; background: #e9e9e9; }
+body { margin: 0; padding: 16px 12px calc(100px + env(safe-area-inset-bottom)); }
+button, select, textarea { font: inherit; }
+button { cursor: pointer; touch-action: manipulation; color: inherit; border: 1px solid #aaa; background: #fff; border-radius: 10px; min-height: 44px; padding: 10px 14px; }
+button:disabled { cursor: default; color: #777; background: #e8e8e8; border-color: #ccc; }
+button:focus-visible, summary:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #555; outline-offset: 3px; }
+button:not(:disabled):active { background: #ccc; }
+.demo-heading { max-width: 440px; margin: 0 auto 12px; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.demo-heading span { color: #666; }
+main { max-width: 440px; margin: auto; }
+.phone { background: #fafafa; border: 1px solid #aaa; border-radius: 24px; overflow: hidden; height: 660px; height: clamp(460px, calc(100svh - 180px), 760px); display: flex; flex-direction: column; }
+.app-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px 0; gap: 4px; }
+.connection { border: 0; background: transparent; text-align: left; padding: 8px; font-size: 13px; }
+.quiet { border: 0; background: transparent; font-size: 13px; }
+.status { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px 24px; min-height: 170px; }
+#status-symbol { font-size: 34px; line-height: 1; }
+h1 { font-size: 25px; margin: 16px 0 10px; font-weight: 600; }
+.status p { margin: 0; font-size: 14px; line-height: 1.7; max-width: 300px; white-space: pre-line; }
+#haptic-cue { font-size: 11px; color: #777; margin-top: 14px; }
+.recent { align-self: center; margin-bottom: 8px; text-decoration: underline; text-underline-offset: 4px; }
+.action-area { position: relative; flex-shrink: 0; }
+.primary { background: #333; color: white; border: 2px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 20px; font-weight: 600; }
+.primary:not(:disabled):active { background: #555; }
+.primary small { font-size: 12px; font-weight: 400; }
+.action-icon { font-size: 26px; }
+.cancel { font-size: 14px; line-height: 1.5; }
+.cancel small { font-size: 10px; }
+/* A: circular target, isolated cancel zone below/right. */
+.phone[data-variant="A"] .action-area { height: 240px; padding-top: 6px; }
+.phone[data-variant="A"] .primary { width: 164px; height: 164px; border-radius: 50%; margin: auto; }
+.phone[data-variant="A"] .cancel { position: absolute; right: 14px; bottom: 14px; }
+/* B: full-width bottom strip with separate adjacent right-hand cancellation. */
+.phone[data-variant="B"] .action-area { display: grid; grid-template-columns: 1fr 76px; gap: 12px; padding: 16px 14px 22px; background: #ddd; border-top: 1px solid #aaa; }
+.phone[data-variant="B"] .primary { min-height: 100px; }
+.phone[data-variant="B"] .action-icon, .phone[data-variant="B"] #primary-hint { display: none; }
+/* C: lower-half surface, with cancel OUTSIDE the primary target, not overlaid. */
+.phone[data-variant="C"] .action-area { height: 48%; min-height: 220px; display: grid; grid-template-columns: 1fr 88px; grid-template-rows: 1fr 68px; background: #e2e2e2; gap: 12px; padding: 12px; border-top: 1px solid #aaa; }
+.phone[data-variant="C"] .primary { grid-column: 1 / -1; grid-row: 1 / -1; border-radius: 12px; padding-bottom: 72px; }
+.phone[data-variant="C"] .cancel { grid-column: 2; grid-row: 2; z-index: 1; }
+/* Clip the touch surface around the distinct cancel corner; no overlapping hit target. */
+.phone[data-variant="C"] .primary { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 80px), calc(100% - 100px) calc(100% - 80px), calc(100% - 100px) 100%, 0 100%); }
+.instrumentation { margin-top: 14px; font-size: 12px; }
+details { border: 1px dashed #999; border-radius: 10px; background: #f5f5f5; padding: 12px; }
+summary { cursor: pointer; min-height: 32px; padding: 5px 0; font-weight: 600; }
+summary small { font-weight: 400; margin-left: 8px; }
+details p, .limitations { line-height: 1.6; color: #555; }
+select, textarea { display: block; width: 100%; margin: 8px 0 12px; padding: 10px; border: 1px solid #999; border-radius: 6px; background: white; color: #222; }
+.demo-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.checkbox { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+#state-readout { display: block; white-space: pre-wrap; font: 11px/1.6 monospace; margin-top: 10px; }
+.prototype-switcher { position: fixed; z-index: 3; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 6px; border-radius: 16px; background: #222; color: white; box-shadow: 0 3px 12px #0003; width: max-content; max-width: calc(100% - 24px); }
+.prototype-switcher button { border: 0; background: #444; color: white; min-width: 44px; }
+.prototype-switcher div { display: flex; flex-direction: column; align-items: center; min-width: 175px; }
+.prototype-switcher small { font-size: 10px; color: #ccc; }
+.prototype-switcher strong { font-size: 13px; }
+dialog { width: min(400px, calc(100% - 32px)); max-height: 85svh; border: 1px solid #999; border-radius: 16px; padding: 20px; }
+dialog::backdrop { background: #0006; }
+dialog header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+h2 { font-size: 20px; }
+#panel-body { font-size: 14px; line-height: 1.7; }
+#panel-body button { margin: 4px 6px 4px 0; }
+#panel-body blockquote { margin: 12px 0; border-left: 3px solid #aaa; padding-left: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-height: 760px) { body { padding-top: 8px; } .demo-heading { margin-bottom: 4px; } .status { padding: 6px 16px; min-height: 0; } h1 { margin-top: 8px; font-size: 22px; } #status-symbol { display: none; } #haptic-cue { margin-top: 8px; } .phone[data-variant="A"] .action-area { height: 210px; } .phone[data-variant="A"] .primary { width: 140px; height: 140px; } }
