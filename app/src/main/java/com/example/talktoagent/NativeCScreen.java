@@ -43,12 +43,24 @@ public final class NativeCScreen extends LinearLayout {
     public static final class State {
         public final Phase phase;
         public final boolean ready;
+        public final boolean manualReady;
+        public final String operationStatus;
         public final String computer;
         public final int remainingSeconds;
         public final String latestFinalText;
         public final List<Blocker> blockers;
         public State(Phase phase, boolean ready, String computer, int remainingSeconds,
                      String latestFinalText, List<Blocker> blockers) {
+            this(phase, ready, computer, remainingSeconds, latestFinalText, blockers, ready);
+        }
+        public State(Phase phase, boolean ready, String computer, int remainingSeconds,
+                     String latestFinalText, List<Blocker> blockers, boolean manualReady) {
+            this(phase, ready, computer, remainingSeconds, latestFinalText, blockers, manualReady, "");
+        }
+        public State(Phase phase, boolean ready, String computer, int remainingSeconds,
+                     String latestFinalText, List<Blocker> blockers, boolean manualReady, String operationStatus) {
+            this.operationStatus = Objects.requireNonNull(operationStatus);
+            this.manualReady = manualReady;
             this.phase = Objects.requireNonNull(phase);
             this.ready = ready;
             this.computer = Objects.requireNonNull(computer);
@@ -59,6 +71,16 @@ public final class NativeCScreen extends LinearLayout {
     }
     private final Actions actions;
     private State state;
+    private Action panel;
+    /** Update live readiness without clearing a typed key or diagnostic draft. */
+    public void update(State state) {
+        this.state = Objects.requireNonNull(state);
+        if (panel == Action.CONNECTION) showPanel(panel);
+        else if (panel == Action.DIAGNOSTICS) {
+            View send = findViewWithTag(Action.MANUAL_SEND);
+            if (send != null) send.setEnabled(state.manualReady);
+        }
+    }
     public NativeCScreen(Context context, Actions actions) {
         super(new ContextThemeWrapper(context, R.style.Theme_TalkToAgent_NativeC));
         this.actions = Objects.requireNonNull(actions);
@@ -71,6 +93,7 @@ public final class NativeCScreen extends LinearLayout {
         });
     }
     public void render(State state) {
+        panel = null;
         this.state = Objects.requireNonNull(state);
         removeAllViews();
         boolean busy = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING
@@ -97,6 +120,7 @@ public final class NativeCScreen extends LinearLayout {
         boolean timed = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING;
         homeLine(info, timed ? "剩餘期限 " + state.remainingSeconds + " 秒（包含準備時間）" : "", 24, 14);
         homeLine(info, timed && state.remainingSeconds <= 5 ? "即將自動結束並等待定稿" : "", 24, 14);
+        if (!state.operationStatus.isEmpty()) text(info, state.operationStatus);
         if (!state.blockers.isEmpty()) {
             Blocker blocker = state.blockers.get(0);
             Button repair = button(info, blocker.reason + " · 修復", blocker.repair, !busy);
@@ -132,6 +156,7 @@ public final class NativeCScreen extends LinearLayout {
         }
     }
     private void showPanel(Action panel) {
+        this.panel = panel;
         removeAllViews();
         ScrollView scroll = new ScrollView(getContext());
         LinearLayout content = new LinearLayout(getContext());
@@ -144,6 +169,7 @@ public final class NativeCScreen extends LinearLayout {
                 : panel == Action.PERMISSION ? "麥克風權限管理" : "診斷／手動測試");
         heading.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall);
         text(content, phaseText(state.phase));
+        if (!state.operationStatus.isEmpty()) text(content, state.operationStatus);
         for (Blocker blocker : state.blockers)
             button(content, blocker.reason + " · 修復", blocker.repair, true);
         switch (panel) {
@@ -169,13 +195,13 @@ public final class NativeCScreen extends LinearLayout {
                 break;
             case DIAGNOSTICS:
                 text(content, state.computer);
-                text(content, "手動送出與語音流程分開；由主程式處理操作。");
+                text(content, "手動測試只送出一次；連線未就緒或操作進行中不送出。");
                 TextInputEditText input = input(content, "手動測試文字");
-                Button send = button(content, "送出手動測試", Action.MANUAL_SEND, true);
+                Button send = button(content, "送出手動測試", Action.MANUAL_SEND, state.manualReady);
                 send.setOnClickListener(v -> actions.accept(new Event(Action.MANUAL_SEND, input.getText().toString())));
                 break;
             case KEY:
-                text(content, "此畫面只輸出操作事件，不讀寫憑證。開發預覽請勿輸入真實金鑰。");
+                text(content, "由主程式安全儲存金鑰；畫面不顯示已存金鑰。修復後仍需主動開始。");
                 TextInputEditText key = input(content, "新金鑰（不顯示已存金鑰）");
                 key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
                 key.setSaveEnabled(false);
@@ -235,6 +261,7 @@ public final class NativeCScreen extends LinearLayout {
         // materialButtonStyle cannot override the variant and its state-list colors.
         MaterialButton view = (MaterialButton) android.view.LayoutInflater.from(getContext()).inflate(layout, parent, false);
         view.setText(label);
+        view.setTag(action);
         view.setAllCaps(false); view.setMinHeight(dp(48)); view.setEnabled(enabled);
         view.setOnClickListener(v -> {
             if (action == Action.HOME) render(state);

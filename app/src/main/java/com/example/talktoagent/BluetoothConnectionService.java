@@ -15,17 +15,16 @@ public final class BluetoothConnectionService extends Service {
     private BluetoothFinalTextTransport transport;
     private BluetoothDevice device;
     private ConnectionCoordinator flow;
-    private AuthorizationRepository.Endpoint endpoint;
-    private boolean everAuthorized;
-    private final java.util.concurrent.ExecutorService authorizationWorker = java.util.concurrent.Executors.newSingleThreadExecutor();
     private Observer observer;
     private boolean running;
     private boolean ready;
     private boolean pending;
+    enum Outcome { NONE, PENDING, COMPLETED, UNKNOWN }
+    private Outcome outcome = Outcome.NONE;
+    Outcome outcome() { return outcome; }
     private boolean outcomeUnknown;
     private String status = "藍牙尚未連線";
     private int generation;
-    private int retrySeconds = 2;
 
     final class LocalBinder extends Binder { BluetoothConnectionService service() { return BluetoothConnectionService.this; } }
     @Override public IBinder onBind(Intent intent) { return binder; }
@@ -48,12 +47,11 @@ public final class BluetoothConnectionService extends Service {
         boolean uncertain = outcomeUnknown || pending || coordinator.outcomeUnknown();
         disconnectConnection();
         device = selected;
-        flow = coordinator; endpoint = coordinator.selected(); everAuthorized = false;
+        flow = coordinator;
         running = true;
         outcomeUnknown = uncertain;
-        retrySeconds = 2;
         status = uncertain
-                ? "上一筆輸入結果不明；先檢查電腦再決定是否重送；正在重新連線"
+                ? "上一筆輸入結果不明；請檢查電腦，不自動重送；正在依使用者操作連線"
                 : "正在連接藍牙 Receiver…";
         startForeground(1, notification());
         publish();
@@ -76,10 +74,9 @@ public final class BluetoothConnectionService extends Service {
         BluetoothFinalTextTransport current = new BluetoothFinalTextTransport(new BluetoothFinalTextTransport.Listener() {
             @Override public void authenticated() { main.post(() -> {
                 if (attempt != generation) return;
-                ready = true; everAuthorized = true;
-                retrySeconds = 2;
+                ready = true;
                 status = outcomeUnknown
-                        ? "藍牙已重連；上一筆輸入結果不明，請先檢查電腦再決定是否重送"
+                        ? "藍牙已連線；上一筆輸入結果不明，請檢查電腦，不自動重送"
                         : "藍牙 Receiver 已授權；可輸入";
                 publish();
             }); }
@@ -91,12 +88,14 @@ public final class BluetoothConnectionService extends Service {
             @Override public void pasted(String id) { main.post(() -> {
                 if (attempt != generation) return;
                 pending = false;
+                outcome = Outcome.COMPLETED;
                 status = "Receiver 已完成貼上動作；不保證目標欄位接受文字" + (outcomeUnknown ? "；較早一筆輸入結果仍不明" : "");
                 publish();
             }); }
             @Override public void rejected(String id, String error) { main.post(() -> {
                 if (attempt != generation) return;
                 pending = false;
+                outcome = Outcome.UNKNOWN;
                 if ("session_locked".equals(error)) {
                     ready = false;
                     status = "Windows 已鎖定或無法輸入；請解鎖後重新連線，未自動補送";
@@ -109,23 +108,9 @@ public final class BluetoothConnectionService extends Service {
                 if (attempt != generation || !running) return;
                 ready = false;
                 outcomeUnknown |= unknownId != null || pending || flow.outcomeUnknown();
-                pending = false;
-                status = outcomeUnknown ? "輸入結果不明；先查看電腦再決定是否重送；正在重連但不補送" : "藍牙已斷線；正在重連（不補送）";
-                publish();
-                int delay = retrySeconds;
-                retrySeconds = Math.min(60, retrySeconds * 2);
-                // Initial invitation failures stop: there is no established session to retry.
-                if (!everAuthorized) {
-                    status = "連線或授權未完成；可按連線恢復 pending 授權，若被拒絕請重掃";
-                    disconnectConnection(); publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return;
-                }
-                main.postDelayed(() -> {
-                    if (attempt != generation || !running) return;
-                    flow.prepareResume(endpoint, authorizationWorker, command -> main.post(command), new ConnectionCoordinator.PreparationListener() {
-                        @Override public void prepared() { if (attempt == generation && running) attempt(); }
-                        @Override public void failed() { if (attempt == generation && running) disconnect(); }
-                    });
-                }, delay * 1000L);
+                if (pending) outcome = Outcome.UNKNOWN;
+                status = outcomeUnknown ? "輸入結果不明；請檢查電腦，按連線才能恢復，不補送" : "藍牙已斷線；請主動按連線恢復";
+                disconnectConnection(); publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
             }); }
         });
         transport = current;
@@ -138,6 +123,7 @@ public final class BluetoothConnectionService extends Service {
             status = "文字為空或超過 4 KiB UTF-8；未送出"; publish(); return false;
         }
         pending = true;
+        outcome = Outcome.PENDING;
         status = "等待貼上確認；斷線時結果可能不明";
         publish();
         transport.send(UUID.randomUUID().toString(), text);
@@ -145,6 +131,7 @@ public final class BluetoothConnectionService extends Service {
     }
     void disconnect() { outcomeUnknown |= pending; disconnectConnection(); status = outcomeUnknown ? "輸入結果不明；請先檢查電腦，未自動重送" : "藍牙已手動中斷"; publish(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); }
     private void disconnectConnection() {
+        if (pending) outcome = Outcome.UNKNOWN;
         running = false;
         generation++;
         ready = false;
@@ -164,5 +151,5 @@ public final class BluetoothConnectionService extends Service {
                 .setContentTitle("TalkToAgent 藍牙輸入").setContentText(status)
                 .setOngoing(true).addAction(new Notification.Action.Builder(null, "中斷連線", action).build()).build();
     }
-    @Override public void onDestroy() { outcomeUnknown |= pending; disconnectConnection(); authorizationWorker.shutdownNow(); super.onDestroy(); }
+    @Override public void onDestroy() { outcomeUnknown |= pending; disconnectConnection(); super.onDestroy(); }
 }

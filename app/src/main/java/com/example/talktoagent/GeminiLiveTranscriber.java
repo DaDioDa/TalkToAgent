@@ -20,6 +20,7 @@ import org.json.JSONObject;
 /** A single press-only Gemini 3.5 Transcribe Live SMART session. Never forwards audio to Receiver. */
 final class GeminiLiveTranscriber {
     interface Listener {
+        default void onCaptureStarted() { }
         void onStage(String stage);
         void onInterim(String text);
         void onFinal(String text);
@@ -48,7 +49,7 @@ final class GeminiLiveTranscriber {
         String text = transcript.takeIfSettled(SystemClock.uptimeMillis());
         if (text != null && !finished) finishFinal(text);
     };
-    private final Runnable captureLimit = () -> finishError("本次收音超過 45 秒，未傳送；請重新驗證 Receiver");
+    // The production utterance coordinator owns the preparation-inclusive capture deadline.
 
     GeminiLiveTranscriber(String key, Listener listener) {
         this.listener = listener;
@@ -88,7 +89,7 @@ final class GeminiLiveTranscriber {
             if (!finished && recorder == null && !released)
                 finishError("Gemini 初始化逾時（" + connectionStage + "），未收音");
         }, 10000);
-        main.postDelayed(captureLimit, 45000);
+
     }
 
     private void receive(String text) {
@@ -106,7 +107,7 @@ final class GeminiLiveTranscriber {
             if (response.has("setupComplete")) {
                 connectionStage = "設定完成，啟動麥克風";
                 listener.onStage(connectionStage);
-                if (!released) startAudio();
+                if (!released && recorder == null) startAudio();
                 return;
             }
             JSONObject content = response.optJSONObject("serverContent");
@@ -141,6 +142,12 @@ final class GeminiLiveTranscriber {
             }
             recorder = audio;
             audio.startRecording();
+            if (audio.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+                recorder = null;
+                audio.release();
+                finishError("麥克風未開始收音，未傳送"); return;
+            }
+            listener.onCaptureStarted();
             connectionStage = "收音中，正在辨識";
             listener.onStage(connectionStage);
             socket.send("{\"realtimeInput\":{\"activityStart\":{}}}");
@@ -195,9 +202,10 @@ final class GeminiLiveTranscriber {
             finishError("放開前 Gemini 尚未開始收音，未傳送");
             return;
         }
-        main.removeCallbacks(captureLimit);
         main.postDelayed(timeout, 8000);
     }
+
+    void finalizeAtDeadline() { if (!finished && released) timeout.run(); }
 
     private void scheduleSettledDelivery() {
         main.removeCallbacks(deliverSettled);
@@ -210,7 +218,6 @@ final class GeminiLiveTranscriber {
         if (finished) return;
         finished = true;
         main.removeCallbacks(timeout);
-        main.removeCallbacks(captureLimit);
         main.removeCallbacks(deliverSettled);
         listener.onFinal(text);
         close();
@@ -220,7 +227,6 @@ final class GeminiLiveTranscriber {
         if (finished) return;
         finished = true;
         main.removeCallbacks(timeout);
-        main.removeCallbacks(captureLimit);
         main.removeCallbacks(deliverSettled);
         listener.onError(reason);
         close();
@@ -230,7 +236,6 @@ final class GeminiLiveTranscriber {
         finished = true;
         recording.set(false);
         main.removeCallbacks(timeout);
-        main.removeCallbacks(captureLimit);
         main.removeCallbacks(deliverSettled);
         if (socket != null) socket.cancel();
         client.dispatcher().cancelAll();

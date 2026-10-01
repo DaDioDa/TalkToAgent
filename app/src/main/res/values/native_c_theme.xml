@@ -1,5 +1,5 @@
 <resources>
-    <!-- Applied only to NativeCScreen's context and the debug preview host. -->
+    <!-- Scoped to NativeCScreen and its production/preview hosts; scanner/service themes unchanged. -->
     <style name="Theme.TalkToAgent.NativeC" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/native_c_primary</item>
         <item name="colorOnPrimary">@color/native_c_on_primary</item>
