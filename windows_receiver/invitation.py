@@ -86,15 +86,14 @@ def to_uri(values):
 def show_terminal(values, out=None):
     import segno
     uri = to_uri(values)
-    terminal_out = out  # Preserve Segno's native Windows console path for default stdout.
     out = sys.stdout if out is None else out
     if not out.isatty():
         raise OSError('QR output requires an interactive terminal. Remove output redirection/logging and restart.')
     qr = segno.make(uri, micro=False, encoding='ascii')
     width, height = qr.symbol_size(border=4)
-    # Full-size terminal encoding uses two columns per module, one row per module.
-    # Keep one spare column so the final module never wraps on auto-wrap terminals.
-    required = (width * 2 + 1, height + 5)
+    # Unicode half-blocks encode two module rows per terminal row and one
+    # module per column. Preserve the four-module quiet zone and a spare column.
+    required = (width + 1, (height + 1) // 2 + 5)
     try:
         size = os.get_terminal_size(out.fileno())
     except (OSError, ValueError):
@@ -104,4 +103,4 @@ def show_terminal(values, out=None):
                       'Maximize terminal or reduce font size, then restart; if already running, use show '
                       '(does not extend expiry).')
     # No URI/manual fallback, image file or redirected secret output.
-    qr.terminal(out=terminal_out, compact=False, border=4)
+    qr.terminal(out=out, compact=True, border=4)

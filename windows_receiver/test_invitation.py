@@ -42,6 +42,27 @@ class InvitationTests(unittest.TestCase):
         self.assertNotIn('talktoagent://', terminal.getvalue())
         self.assertNotIn(values['k'], terminal.getvalue())
 
+    def test_normal_terminal_renders_compact_standard_qr(self):
+        import io
+        import os
+        import segno
+        from unittest.mock import patch
+        from invitation import parse_uri, show_terminal, to_uri
+        values = parse_uri(json.loads(VECTORS.read_text(encoding='utf-8'))['valid'][0]['uri'])
+        class Terminal(io.StringIO):
+            def isatty(self): return True
+            def fileno(self): return 1
+        terminal = Terminal()
+        with patch('invitation.os.get_terminal_size', return_value=os.terminal_size((80, 40))):
+            show_terminal(values, terminal)
+        qr = segno.make(to_uri(values), micro=False, encoding='ascii')
+        width, height = qr.symbol_size(border=4)
+        lines = terminal.getvalue().splitlines()
+        self.assertEqual(len(lines), (height + 1) // 2)
+        self.assertTrue(all(len(line) == width for line in lines))
+        self.assertTrue(set(terminal.getvalue()) <= set(' ▀▄█\n'))
+        self.assertNotIn(values['k'], terminal.getvalue())
+
     def test_shared_der_signature_and_hmac_fixtures(self):
         import hmac
         from authorization import pack, public_key, unb64, b64
