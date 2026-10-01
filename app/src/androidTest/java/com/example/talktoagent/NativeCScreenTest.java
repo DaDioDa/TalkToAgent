@@ -64,6 +64,10 @@ public class NativeCScreenTest {
             onView(withText("儲存金鑰")).perform(click());
             assertEquals(NativeCScreen.Action.SAVE_KEY, events.get(1).action);
             assertEquals("simulated-key-only", events.get(1).text);
+            onView(withHint("新金鑰（不顯示已存金鑰）")).check(matches(withText(""))).check((view, error) -> {
+                if (error != null) throw error;
+                org.junit.Assert.assertFalse("Key is never saved in view state", view.isSaveEnabled());
+            });
             onView(withText("清除金鑰")).perform(click());
             assertEquals(NativeCScreen.Action.CLEAR_KEY, events.get(2).action);
             onView(withText("返回主畫面")).perform(click());
@@ -110,7 +114,9 @@ public class NativeCScreenTest {
         try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
             for (boolean longText : new boolean[]{false, true}) {
                 scenario.onActivity(a -> {
-                    NativeCScreen screen = new NativeCScreen(a, e -> events.add(e.action));
+                    android.content.res.Configuration scaled = new android.content.res.Configuration(a.getResources().getConfiguration());
+                    scaled.fontScale = 1.3f;
+                    NativeCScreen screen = new NativeCScreen(a.createConfigurationContext(scaled), e -> events.add(e.action));
                     android.widget.FrameLayout root = new android.widget.FrameLayout(a);
                     root.addView(screen, new android.widget.FrameLayout.LayoutParams(-1,
                             Math.round(400 * a.getResources().getDisplayMetrics().density)));
@@ -121,9 +127,13 @@ public class NativeCScreenTest {
                                     new NativeCScreen.Blocker(String.join("", java.util.Collections.nCopies(30, "尚未授權，請修復連線")), NativeCScreen.Action.CONNECTION),
                                     new NativeCScreen.Blocker("金鑰缺失", NativeCScreen.Action.KEY))));
                 });
-                onView(withText(longText ? "收音中 · 可以說話" : "準備中 · 尚未收音")).check(matches(isCompletelyDisplayed()));
-                onView(withText("剩餘期限 5 秒（包含準備時間）")).check(matches(isCompletelyDisplayed()));
-                onView(withText("即將自動結束並等待定稿")).check(matches(isCompletelyDisplayed()));
+                // Compact status scrolls independently; both fixed actions remain accessible.
+                onView(withText(longText ? "收音中 · 可以說話" : "準備中 · 尚未收音"))
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isCompletelyDisplayed()));
+                onView(withText("剩餘期限 5 秒（包含準備時間）"))
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isCompletelyDisplayed()));
+                onView(withText("即將自動結束並等待定稿"))
+                        .perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isCompletelyDisplayed()));
                 int index = 0;
                 for (String label : new String[]{longText ? "結束並送出" : "開始輸入", "取消"}) {
                     final int slot = index++;
@@ -166,12 +176,29 @@ public class NativeCScreenTest {
     }
     @Test public void previewAllowsDirectPhaseAndIndependentReadinessSelection() {
         try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
+            onView(withText("展開開發控制")).perform(click());
             onView(withText("切換模擬狀態")).perform(click());
             onView(withText("UNKNOWN")).perform(click());
             onView(withText("切換模擬就緒／障礙")).perform(click());
             onView(withText("輸入尚未就緒")).check(matches(isDisplayed()));
             onView(withText("輸入結果不明 · 請檢查電腦，不自動重送")).check(matches(isDisplayed()));
             onView(withText("開始輸入")).check(matches(org.hamcrest.Matchers.not(isEnabled())));
+        }
+    }
+    @Test public void previewNoticePersistsAndNeverDisplaysKeyPayload() {
+        try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
+            onView(withText("設定")).perform(click());
+            onView(withText("Gemini 金鑰")).perform(click());
+            onView(withHint("新金鑰（不顯示已存金鑰）")).perform(
+                    androidx.test.espresso.action.ViewActions.replaceText("simulated-secret"),
+                    androidx.test.espresso.action.ViewActions.closeSoftKeyboard());
+            onView(withText("儲存金鑰")).perform(click());
+            onView(withText(org.hamcrest.Matchers.containsString("模擬事件（無實際操作）：SAVE_KEY")))
+                    .check(matches(withText(org.hamcrest.Matchers.allOf(
+                            org.hamcrest.Matchers.containsString("開發預覽 · 模擬資料，未連接真實功能"),
+                            org.hamcrest.Matchers.containsString("金鑰內容不顯示"),
+                            org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("simulated-secret"))))));
+            onView(withHint("新金鑰（不顯示已存金鑰）")).check(matches(withText("")));
         }
     }
     @Test public void latestAndDiagnosticsNavigateAndEmitPayloadWithoutDeviceOperations() {
@@ -195,6 +222,93 @@ public class NativeCScreenTest {
             onView(withText("送出手動測試")).perform(click());
             assertEquals(NativeCScreen.Action.MANUAL_SEND, events.get(events.size() - 1).action);
             assertEquals("測試，不傳送", events.get(events.size() - 1).text);
+        }
+    }
+    @Test public void themedSnapshotsKeepLargeActionAndCancelSeparate() throws Exception {
+        try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
+            for (String sample : new String[]{"ready", "recording", "blocked", "dark-large-font",
+                    "dark-recording", "dark-blocked", "key", "dark-key"}) {
+                scenario.onActivity(a -> {
+                    android.content.res.Configuration config = new android.content.res.Configuration(a.getResources().getConfiguration());
+                    config.uiMode = (config.uiMode & ~android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                            | (sample.startsWith("dark") ? android.content.res.Configuration.UI_MODE_NIGHT_YES
+                            : android.content.res.Configuration.UI_MODE_NIGHT_NO);
+                    config.fontScale = sample.equals("dark-large-font") ? 1.3f : 1f;
+                    int bars = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                            | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                    a.getWindow().getInsetsController().setSystemBarsAppearance(sample.startsWith("dark") ? 0 : bars, bars);
+                    NativeCScreen screen = new NativeCScreen(a.createConfigurationContext(config), e -> {});
+                    a.setContentView(screen);
+                    boolean blocked = sample.endsWith("blocked");
+                    screen.render(new NativeCScreen.State(sample.endsWith("recording") ? NativeCScreen.Phase.RECORDING
+                            : sample.startsWith("dark") ? NativeCScreen.Phase.UNKNOWN : NativeCScreen.Phase.READY,
+                            !blocked, "示範電腦 · 已連線", 5, "",
+                            blocked ? java.util.Collections.singletonList(new NativeCScreen.Blocker("麥克風未授權", NativeCScreen.Action.PERMISSION))
+                            : java.util.Collections.emptyList()));
+                });
+                final android.graphics.Rect main = new android.graphics.Rect();
+                onView(withText(sample.endsWith("recording") ? "結束並送出" : "開始輸入")).check((view, error) -> {
+                    if (error != null) throw error;
+                    int[] position = new int[2]; view.getLocationOnScreen(position);
+                    main.set(position[0], position[1], position[0] + view.getWidth(), position[1] + view.getHeight());
+                    org.junit.Assert.assertTrue("Large action surface", view.getHeight() >= 96 * view.getResources().getDisplayMetrics().density);
+                    com.google.android.material.button.MaterialButton button = (com.google.android.material.button.MaterialButton) view;
+                    int foreground = com.google.android.material.color.MaterialColors.getColor(view,
+                            button.isEnabled() ? com.google.android.material.R.attr.colorOnPrimaryContainer
+                                    : com.google.android.material.R.attr.colorOnSurface);
+                    if (!button.isEnabled()) foreground = androidx.core.graphics.ColorUtils.setAlphaComponent(foreground, Math.round(255 * .38f));
+                    assertEquals("Tonal foreground matches theme and enabled state", foreground, button.getCurrentTextColor());
+                    assertEquals("Microphone uses the same accessible foreground", foreground,
+                            button.getIconTint().getColorForState(button.getDrawableState(), 0));
+                    int background = com.google.android.material.color.MaterialColors.getColor(view,
+                            button.isEnabled() ? com.google.android.material.R.attr.colorPrimaryContainer
+                                    : com.google.android.material.R.attr.colorOnSurface);
+                    if (!button.isEnabled()) background = androidx.core.graphics.ColorUtils.setAlphaComponent(background, Math.round(255 * .12f));
+                    assertEquals("Tonal fill is not overridden by the default widget style", background,
+                            button.getBackgroundTintList().getColorForState(button.getDrawableState(), 0));
+                    if (button.isEnabled()) org.junit.Assert.assertTrue("Enabled label contrast >= 4.5:1",
+                            androidx.core.graphics.ColorUtils.calculateContrast(foreground, background) >= 4.5);
+                });
+                onView(withText("取消")).check(matches(isCompletelyDisplayed())).check((view, error) -> {
+                    if (error != null) throw error;
+                    int[] position = new int[2]; view.getLocationOnScreen(position);
+                    org.junit.Assert.assertTrue("Whitespace separates actions", position[1] > main.bottom);
+                });
+                if (sample.equals("dark-large-font")) onView(withText("輸入結果不明 · 請檢查電腦，不自動重送"))
+                        .check(matches(isCompletelyDisplayed()));
+                if (sample.endsWith("key")) {
+                    onView(withText("設定")).perform(click());
+                    onView(withText("Gemini 金鑰")).perform(click());
+                    onView(withHint("新金鑰（不顯示已存金鑰）")).check(matches(isDisplayed()));
+                    onView(withText("儲存金鑰")).check((view, error) -> {
+                        if (error != null) throw error;
+                        com.google.android.material.button.MaterialButton button = (com.google.android.material.button.MaterialButton) view;
+                        int foreground = com.google.android.material.color.MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnPrimary);
+                        int background = com.google.android.material.color.MaterialColors.getColor(view, com.google.android.material.R.attr.colorPrimary);
+                        assertEquals(foreground, button.getCurrentTextColor());
+                        assertEquals(background, button.getBackgroundTintList().getColorForState(button.getDrawableState(), 0));
+                        org.junit.Assert.assertTrue("Filled label contrast >= 4.5:1",
+                                androidx.core.graphics.ColorUtils.calculateContrast(foreground, background) >= 4.5);
+                    });
+                }
+                android.app.Instrumentation instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation();
+                // Shared Pictures survive Gradle's cleanup of the isolated test app.
+                android.content.ContentResolver resolver = instrumentation.getTargetContext().getContentResolver();
+                android.content.ContentValues values = new android.content.ContentValues();
+                values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, sample + ".png");
+                values.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png");
+                values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TalkToAgent-native-c");
+                android.net.Uri destination = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                org.junit.Assert.assertNotNull(destination);
+                instrumentation.waitForIdleSync();
+                // System-bar icon appearance animates outside Espresso's app idling.
+                android.os.SystemClock.sleep(350);
+                android.graphics.Bitmap image = instrumentation.getUiAutomation().takeScreenshot();
+                org.junit.Assert.assertNotNull(image);
+                try (java.io.OutputStream output = resolver.openOutputStream(destination)) {
+                    org.junit.Assert.assertTrue(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output));
+                } finally { image.recycle(); }
+            }
         }
     }
     @Test public void readyStartEmitsOnlyAnActionWithoutChangingPresentation() {

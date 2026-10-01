@@ -1,7 +1,11 @@
 package com.example.talktoagent;
 
 import android.content.Context;
-import android.graphics.Color;
+import androidx.appcompat.view.ContextThemeWrapper;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.color.MaterialColors;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.material.textfield.TextInputEditText;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
@@ -56,10 +60,10 @@ public final class NativeCScreen extends LinearLayout {
     private final Actions actions;
     private State state;
     public NativeCScreen(Context context, Actions actions) {
-        super(context);
+        super(new ContextThemeWrapper(context, R.style.Theme_TalkToAgent_NativeC));
         this.actions = Objects.requireNonNull(actions);
         setOrientation(VERTICAL);
-        setBackgroundColor(Color.WHITE);
+        setBackgroundColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface));
         setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets safe = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
             setPadding(safe.left, safe.top, safe.right, safe.bottom);
@@ -69,46 +73,49 @@ public final class NativeCScreen extends LinearLayout {
     public void render(State state) {
         this.state = Objects.requireNonNull(state);
         removeAllViews();
-        LinearLayout info = new LinearLayout(getContext());
-        info.setOrientation(VERTICAL);
-        // A bounded, non-scrolling core keeps status visible even at 400dp height.
-        // Reserve the same rows in every phase; only supplemental details live in panels.
-        addView(info, new LayoutParams(LayoutParams.MATCH_PARENT, dp(196), 1));
-        homeLine(info, state.computer, 18, 14);
-        homeLine(info, state.ready ? "輸入就緒" : "輸入尚未就緒", 18, 14);
         boolean busy = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING
                 || state.phase == Phase.FINALIZING || state.phase == Phase.SENDING;
-        homeLine(info, phaseText(state.phase), 24, 16);
-        boolean timed = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING;
-        homeLine(info, timed ? "剩餘期限 " + state.remainingSeconds + " 秒（包含準備時間）" : "", 20, 14);
-        homeLine(info, timed && state.remainingSeconds <= 5 ? "即將自動結束並等待定稿" : "", 20, 14);
+        // Stable allocations: long text and font scaling scroll only the status area,
+        // never displacing the large action surface or the full-width cancel target.
+        ScrollView status = new ScrollView(getContext());
+        status.setFillViewport(true);
+        LinearLayout info = new LinearLayout(getContext());
+        info.setOrientation(VERTICAL);
+        info.setPadding(dp(16), 0, dp(16), 0);
+        status.addView(info);
+        addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, 0, .45f));
         LinearLayout entries = new LinearLayout(getContext());
         info.addView(entries, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
         for (Action entry : new Action[]{Action.CONNECTION, Action.SETTINGS, Action.LATEST}) {
             Button secondary = button(entries, entry == Action.CONNECTION ? "連線管理" : entry == Action.SETTINGS ? "設定" : "最近定稿", entry, !busy);
-            secondary.setTextSize(14);
             secondary.setMaxLines(1);
-            secondary.setLayoutParams(new LayoutParams(0, dp(48), 1));
+            secondary.setLayoutParams(new LayoutParams(0, dp(48), entry == Action.CONNECTION ? 1.3f : 1));
         }
-        if (state.blockers.isEmpty()) {
-            info.addView(new View(getContext()), new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
-        } else {
+        homeLine(info, state.computer, 24, 14);
+        homeLine(info, state.ready ? "輸入就緒" : "輸入尚未就緒", 24, 14);
+        homeLine(info, phaseText(state.phase), 48, 22);
+        boolean timed = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING;
+        homeLine(info, timed ? "剩餘期限 " + state.remainingSeconds + " 秒（包含準備時間）" : "", 24, 14);
+        homeLine(info, timed && state.remainingSeconds <= 5 ? "即將自動結束並等待定稿" : "", 24, 14);
+        if (!state.blockers.isEmpty()) {
             Blocker blocker = state.blockers.get(0);
             Button repair = button(info, blocker.reason + " · 修復", blocker.repair, !busy);
             repair.setSingleLine(true);
             repair.setEllipsize(android.text.TextUtils.TruncateAt.END);
             repair.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
         }
-        Button main = button(this, state.phase == Phase.RECORDING ? "結束並送出" : "開始輸入",
+        MaterialButton main = (MaterialButton) button(this, state.phase == Phase.RECORDING ? "結束並送出" : "開始輸入",
                 state.phase == Phase.RECORDING ? Action.FINISH : Action.START,
                 state.phase == Phase.RECORDING || (!busy && state.ready && state.phase != Phase.UNAVAILABLE));
-        main.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(48), 1));
-        View divider = new View(getContext());
-        divider.setBackgroundColor(Color.DKGRAY);
-        addView(divider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(12)));
+        main.setIconResource(R.drawable.native_c_mic);
+        LayoutParams mainBounds = new LayoutParams(LayoutParams.MATCH_PARENT, 0, .55f);
+        mainBounds.setMargins(dp(16), dp(8), dp(16), 0);
+        main.setLayoutParams(mainBounds);
+        View space = new View(getContext());
+        addView(space, new LayoutParams(LayoutParams.MATCH_PARENT, dp(16)));
         Button cancel = button(this, "取消", Action.CANCEL,
                 state.phase == Phase.PREPARING || state.phase == Phase.RECORDING);
-        cancel.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(68)));
+        cancel.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(56)));
     }
     private String phaseText(Phase phase) {
         switch (phase) {
@@ -129,14 +136,19 @@ public final class NativeCScreen extends LinearLayout {
         ScrollView scroll = new ScrollView(getContext());
         LinearLayout content = new LinearLayout(getContext());
         content.setOrientation(VERTICAL);
+        content.setPadding(dp(16), dp(16), dp(16), dp(16));
         scroll.addView(content);
         addView(scroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1));
+        TextView heading = text(content, panel == Action.CONNECTION ? "連線管理" : panel == Action.SETTINGS ? "設定"
+                : panel == Action.LATEST ? "最近定稿" : panel == Action.KEY ? "Gemini 金鑰管理"
+                : panel == Action.PERMISSION ? "麥克風權限管理" : "診斷／手動測試");
+        heading.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall);
         text(content, phaseText(state.phase));
         for (Blocker blocker : state.blockers)
             button(content, blocker.reason + " · 修復", blocker.repair, true);
         switch (panel) {
             case CONNECTION:
-                text(content, "連線管理 · " + state.computer);
+                text(content, state.computer);
                 text(content, "QR 邀請不等於應用授權；藍牙系統配對需另行完成。通道由使用者選擇，不自動切換或補送。");
                 button(content, "掃描 QR 邀請", Action.SCAN_QR, true);
                 button(content, "恢復既有應用授權", Action.RECOVER_AUTHORIZATION, true);
@@ -145,7 +157,6 @@ public final class NativeCScreen extends LinearLayout {
                 button(content, "主動中斷連線", Action.DISCONNECT, true);
                 break;
             case SETTINGS:
-                text(content, "設定");
                 button(content, "Gemini 金鑰", Action.KEY, true);
                 button(content, "麥克風權限", Action.PERMISSION, true);
                 button(content, "診斷／手動測試", Action.DIAGNOSTICS, true);
@@ -157,33 +168,26 @@ public final class NativeCScreen extends LinearLayout {
                 copy.setOnClickListener(v -> actions.accept(new Event(Action.COPY, state.latestFinalText)));
                 break;
             case DIAGNOSTICS:
-                text(content, "診斷／手動測試 · " + state.computer);
+                text(content, state.computer);
                 text(content, "手動送出與語音流程分開；由主程式處理操作。");
-                android.widget.EditText input = new android.widget.EditText(getContext());
-                input.setHint("手動測試文字");
-                input.setMinHeight(dp(48));
-                content.addView(input);
+                TextInputEditText input = input(content, "手動測試文字");
                 Button send = button(content, "送出手動測試", Action.MANUAL_SEND, true);
                 send.setOnClickListener(v -> actions.accept(new Event(Action.MANUAL_SEND, input.getText().toString())));
                 break;
             case KEY:
-                text(content, "Gemini 金鑰管理");
                 text(content, "此畫面只輸出操作事件，不讀寫憑證。開發預覽請勿輸入真實金鑰。");
-                android.widget.EditText key = new android.widget.EditText(getContext());
-                key.setHint("新金鑰（不顯示已存金鑰）");
+                TextInputEditText key = input(content, "新金鑰（不顯示已存金鑰）");
                 key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
                 key.setSaveEnabled(false);
-                key.setMinHeight(dp(48));
-                content.addView(key);
                 Button save = button(content, "儲存金鑰", Action.SAVE_KEY, true);
                 save.setOnClickListener(v -> {
-                    actions.accept(new Event(Action.SAVE_KEY, key.getText().toString()));
+                    String payload = key.getText().toString();
                     key.setText("");
+                    actions.accept(new Event(Action.SAVE_KEY, payload));
                 });
                 button(content, "清除金鑰", Action.CLEAR_KEY, true);
                 break;
             case PERMISSION:
-                text(content, "麥克風權限管理");
                 text(content, "由主程式處理權限請求；修復後仍需主動開始。");
                 button(content, "請求麥克風權限", Action.REQUEST_PERMISSION, true);
                 break;
@@ -194,23 +198,43 @@ public final class NativeCScreen extends LinearLayout {
     private void homeLine(LinearLayout parent, String value, int height, int size) {
         TextView view = new TextView(getContext());
         view.setText(value);
-        view.setTextColor(Color.BLACK);
-        view.setTextSize(size);
-        view.setSingleLine(true);
+        view.setMaxLines(size >= 22 ? 2 : 1);
         view.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        view.setTextAppearance(size >= 22 ? com.google.android.material.R.style.TextAppearance_Material3_TitleLarge
+                : com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+        view.setTextColor(MaterialColors.getColor(this, size >= 22
+                ? com.google.android.material.R.attr.colorOnSurface : com.google.android.material.R.attr.colorOnSurfaceVariant));
         view.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        view.setPadding(dp(12), 0, dp(12), 0);
-        parent.addView(view, new LayoutParams(LayoutParams.MATCH_PARENT, dp(height)));
+        parent.addView(view, new LayoutParams(LayoutParams.MATCH_PARENT, Math.max(dp(height), Math.round(view.getTextSize() * (size >= 22 ? 2.5f : 1.5f)))));
     }
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
-    private void text(LinearLayout parent, String value) {
+    private TextView text(LinearLayout parent, String value) {
         TextView view = new TextView(getContext());
-        view.setText(value); view.setTextColor(Color.BLACK); view.setTextSize(18);
-        view.setPadding(dp(12), dp(4), dp(12), dp(4)); parent.addView(view);
+        view.setText(value); view.setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface)); view.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
+        view.setPadding(0, dp(8), 0, dp(8));
+        parent.addView(view);
+        return view;
+    }
+    private TextInputEditText input(LinearLayout parent, String hint) {
+        TextInputLayout field = (TextInputLayout) android.view.LayoutInflater.from(getContext())
+                .inflate(R.layout.native_c_input, parent, false);
+        TextInputEditText edit = (TextInputEditText) field.getEditText();
+        // Keep the hint on the edit view for both accessibility and the public test seam.
+        edit.setHint(hint);
+        parent.addView(field, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        return edit;
     }
     private Button button(LinearLayout parent, String label, Action action, boolean enabled) {
-        Button view = new Button(getContext());
-        view.setText(label); view.setTextColor(Color.BLACK); view.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.LTGRAY));
+        int layout = action == Action.START || action == Action.FINISH ? R.layout.native_c_main_button
+                : action == Action.CANCEL || action == Action.HOME || action == Action.CLEAR_KEY || action == Action.DISCONNECT
+                ? R.layout.native_c_outlined_button
+                : action == Action.SAVE_KEY || action == Action.MANUAL_SEND || action == Action.REQUEST_PERMISSION
+                || action == Action.COPY || action == Action.SCAN_QR ? R.layout.native_c_filled_button
+                : R.layout.native_c_text_button;
+        // A widget style is not a theme overlay: inflate explicit styles so default
+        // materialButtonStyle cannot override the variant and its state-list colors.
+        MaterialButton view = (MaterialButton) android.view.LayoutInflater.from(getContext()).inflate(layout, parent, false);
+        view.setText(label);
         view.setAllCaps(false); view.setMinHeight(dp(48)); view.setEnabled(enabled);
         view.setOnClickListener(v -> {
             if (action == Action.HOME) render(state);

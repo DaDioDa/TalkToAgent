@@ -1,0 +1,10 @@
+<resources>
+    <color name="native_c_primary">#ACC7DF</color>
+    <color name="native_c_on_primary">#183348</color>
+    <color name="native_c_container">#30485C</color>
+    <color name="native_c_on_container">#DCE7EF</color>
+    <color name="native_c_surface">#11171C</color>
+    <color name="native_c_on_surface">#E2E7EB</color>
+    <color name="native_c_secondary">#B4BFC8</color>
+    <bool name="native_c_light_bars">false</bool>
+</resources>

@@ -18,6 +18,7 @@ public final class NativeCPreviewActivity extends Activity {
     private int seconds = 45;
     private int reason;
     @Override public void onCreate(Bundle savedInstanceState) {
+        setTheme(R.style.Theme_TalkToAgent_NativeC);
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             phase = NativeCScreen.Phase.valueOf(savedInstanceState.getString("phase", "READY"));
@@ -27,6 +28,7 @@ public final class NativeCPreviewActivity extends Activity {
         }
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(root, com.google.android.material.R.attr.colorSurface));
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets safe = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
             root.setPadding(safe.left, safe.top, safe.right, safe.bottom);
@@ -34,22 +36,37 @@ public final class NativeCPreviewActivity extends Activity {
         });
         TextView notice = new TextView(this);
         notice.setText("開發預覽 · 模擬資料／事件，未連接真實功能");
-        notice.setMaxLines(2);
+        notice.setLines(2);
+        notice.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+        int unit = Math.round(8 * getResources().getDisplayMetrics().density);
+        notice.setPadding(unit * 2, unit, unit * 2, unit);
         root.addView(notice);
         LinearLayout controls = new LinearLayout(this);
-        root.addView(controls);
+        LinearLayout developer = new LinearLayout(this);
+        developer.setOrientation(LinearLayout.VERTICAL);
+        developer.setVisibility(android.view.View.GONE);
+        Button toggle = (Button) getLayoutInflater().inflate(R.layout.native_c_text_button, root, false);
+        toggle.setText("展開開發控制");
+        toggle.setOnClickListener(v -> {
+            boolean expand = developer.getVisibility() != android.view.View.VISIBLE;
+            developer.setVisibility(expand ? android.view.View.VISIBLE : android.view.View.GONE);
+            toggle.setText(expand ? "收合開發控制" : "展開開發控制");
+        });
+        root.addView(toggle);
+        root.addView(developer);
+        developer.addView(controls);
         addControl(controls, "切換模擬狀態", () -> new AlertDialog.Builder(this)
                 .setTitle("直接選擇呈現階段（不是語音流程）")
                 .setItems(Arrays.stream(NativeCScreen.Phase.values()).map(Enum::name).toArray(String[]::new),
                         (dialog, index) -> { phase = NativeCScreen.Phase.values()[index]; render(); }).show());
         addControl(controls, "切換模擬就緒／障礙", () -> { ready = !ready; render(); });
         LinearLayout details = new LinearLayout(this);
-        root.addView(details);
+        developer.addView(details);
         addControl(details, "選擇障礙原因", () -> new AlertDialog.Builder(this).setItems(
                 new String[]{"金鑰缺失／無效", "麥克風未授權", "Receiver 未驗證／斷線", "多項障礙（長文字）"},
                 (dialog, index) -> { reason = index; render(); }).show());
         addControl(details, "期限 45／5 秒", () -> { seconds = seconds == 45 ? 5 : 45; render(); });
-        screen = new NativeCScreen(this, event -> notice.setText("模擬事件（無實際操作）：" + event.action
+        screen = new NativeCScreen(this, event -> notice.setText("開發預覽 · 模擬資料，未連接真實功能\n模擬事件（無實際操作）：" + event.action
                 + (event.action == NativeCScreen.Action.SAVE_KEY ? " · 金鑰內容不顯示"
                         : event.text.isEmpty() ? "" : " · " + event.text)));
         root.addView(screen, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -57,7 +74,7 @@ public final class NativeCPreviewActivity extends Activity {
         render();
     }
     private void addControl(LinearLayout row, String label, Runnable click) {
-        Button button = new Button(this);
+        Button button = (Button) getLayoutInflater().inflate(R.layout.native_c_text_button, row, false);
         button.setText(label); button.setAllCaps(false); button.setTextSize(12);
         button.setOnClickListener(v -> click.run());
         row.addView(button, new LinearLayout.LayoutParams(0, -2, 1));

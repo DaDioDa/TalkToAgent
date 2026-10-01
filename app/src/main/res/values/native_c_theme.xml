@@ -1,0 +1,47 @@
+<resources>
+    <!-- Applied only to NativeCScreen's context and the debug preview host. -->
+    <style name="Theme.TalkToAgent.NativeC" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/native_c_primary</item>
+        <item name="colorOnPrimary">@color/native_c_on_primary</item>
+        <item name="colorPrimaryContainer">@color/native_c_container</item>
+        <item name="colorOnPrimaryContainer">@color/native_c_on_container</item>
+        <item name="colorSecondaryContainer">@color/native_c_container</item>
+        <item name="colorOnSecondaryContainer">@color/native_c_on_container</item>
+        <item name="colorSurface">@color/native_c_surface</item>
+        <item name="colorOnSurface">@color/native_c_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/native_c_secondary</item>
+        <item name="android:colorBackground">@color/native_c_surface</item>
+        <item name="android:windowLightStatusBar">@bool/native_c_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/native_c_light_bars</item>
+    </style>
+    <style name="Widget.TalkToAgent.NativeC.Main" parent="Widget.Material3.Button.TonalButton">
+        <item name="cornerRadius">28dp</item>
+        <item name="android:textColor">@color/native_c_action_text</item>
+        <item name="iconTint">@color/native_c_action_text</item>
+        <item name="backgroundTint">@color/native_c_action_fill</item>
+        <item name="android:textSize">22sp</item>
+        <item name="iconSize">32dp</item>
+        <item name="iconGravity">textTop</item>
+        <item name="iconPadding">16dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+    <style name="Widget.TalkToAgent.NativeC.Filled" parent="Widget.Material3.Button">
+        <item name="android:textColor">@color/native_c_filled_text</item>
+        <item name="backgroundTint">@color/native_c_filled_background</item>
+    </style>
+    <style name="Widget.TalkToAgent.NativeC.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/native_c_secondary_text</item>
+    </style>
+    <style name="Widget.TalkToAgent.NativeC.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textColor">@color/native_c_secondary_text</item>
+    </style>
+    <color name="native_c_primary">#49647C</color>
+    <color name="native_c_on_primary">#FFFFFF</color>
+    <color name="native_c_container">#DCE7EF</color>
+    <color name="native_c_on_container">#243B4F</color>
+    <color name="native_c_surface">#F8FAFC</color>
+    <color name="native_c_on_surface">#1A1C1E</color>
+    <color name="native_c_secondary">#535F69</color>
+    <bool name="native_c_light_bars">true</bool>
+</resources>
