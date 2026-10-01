@@ -1,0 +1,11 @@
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.afterEvaluate {
+            def android = project.extensions.getByName('android')
+            android.buildTypes.getByName('debug').applicationIdSuffix = '.qrdiagnosis'
+            android.sourceSets.getByName('debug').java.srcDir(new File(project.rootDir, 'tools/diagnostics/qr-service-binding/debug'))
+            android.sourceSets.getByName('debug').manifest.srcFile(new File(project.rootDir, 'tools/diagnostics/qr-service-binding/AndroidManifest.xml'))
+            android.sourceSets.getByName('androidTest').java.srcDir(new File(project.rootDir, 'tools/diagnostics/qr-service-binding/java'))
+        }
+    }
+}

@@ -56,12 +56,39 @@ public final class MainActivity extends Activity {
     };
     private BluetoothConnectionService bluetooth;
     private boolean bluetoothPending;
+    private boolean serviceBound;
+    private ConnectionCoordinator bindingCoordinator;
+    private int bindingGeneration;
+    private Runnable bindingTimeout;
+    // Device boundary used by isolated diagnostics; authorization and UI remain real.
+    java.util.function.Consumer<BluetoothAdapter> bluetoothDevicePreparation = this::prepareBluetoothDevice;
+
+    private void clearBindingWait() {
+        if (bindingTimeout != null) main.removeCallbacks(bindingTimeout);
+        bindingTimeout = null; bindingCoordinator = null;
+    }
+    private void failBindingWait() {
+        if (bindingCoordinator == null) return;
+        clearBindingWait();
+        showAuthenticationFailure("背景服務連線未完成；請再按連線，若仍失敗請重新開啟應用");
+    }
+    private void continueBindingWait() {
+        if (bindingCoordinator == null || !activityVisible || bluetooth == null) return;
+        boolean current = bindingGeneration == transportGeneration && bindingCoordinator == coordinator
+                && connectingAttempt && bluetoothSelected() && !isFinishing() && !isDestroyed();
+        clearBindingWait();
+        if (current) authenticateBluetooth();
+    }
+
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             bluetooth = ((BluetoothConnectionService.LocalBinder) binder).service();
-            if (bluetooth.coordinator() != null) coordinator = bluetooth.coordinator();
+            if (!activityVisible || !serviceBound || isDestroyed()) { bluetooth = null; return; }
+            if (!connectingAttempt && !waitingBond && bindingCoordinator == null
+                    && bluetooth.coordinator() != null) coordinator = bluetooth.coordinator();
+            BluetoothConnectionService observedService = bluetooth;
             bluetooth.observe((ready, pending, status) -> {
-                if (!bluetoothSelected()) return;
+                if (bluetooth != observedService || !activityVisible || !bluetoothSelected() || connectingAttempt || waitingBond) return;
                 receiverAuthenticated = ready;
                 if (ready) knownFailure = null;
                 if (!ready && utterance.active()) cancelVoice();
@@ -75,8 +102,12 @@ public final class MainActivity extends Activity {
                 refreshReadiness();
             });
             if (waitingBond && activityVisible) reconcileBond();
+            continueBindingWait();
         }
+        @Override public void onNullBinding(ComponentName name) { failBindingWait(); }
+        @Override public void onBindingDied(ComponentName name) { failBindingWait(); }
         @Override public void onServiceDisconnected(ComponentName name) {
+            failBindingWait();
             bluetooth = null;
             receiverAuthenticated = false;
             leaveVoice();
@@ -289,7 +320,7 @@ public final class MainActivity extends Activity {
         });
     }
     private void disconnectAll() {
-        cancelVoice(); utterance.leave(); stopBondWait(); connectingAttempt = false; permissionContinuation = null;
+        clearBindingWait(); cancelVoice(); utterance.leave(); stopBondWait(); connectingAttempt = false; permissionContinuation = null;
         transportGeneration++; snapshotGeneration++;
         if (transport != null) { transport.close(); transport = null; }
         if (bluetooth != null) bluetooth.disconnect(); else disconnectBluetooth();
@@ -327,7 +358,24 @@ public final class MainActivity extends Activity {
         try {
             BluetoothAdapter adapter = getSystemService(BluetoothManager.class).getAdapter();
             if (adapter == null || !adapter.isEnabled()) { connectingAttempt = false; showSettings("請在系統設定開啟藍牙，再按連線"); refreshReadiness(); return; }
-            if (bluetooth == null) { showAuthenticationFailure("背景服務尚未就緒；請稍後按連線"); return; }
+            if (!connectingAttempt || !bluetoothSelected() || coordinator == null || coordinator.selected() == null
+                    || !"bt".equals(coordinator.selected().channel) || isDestroyed() || isFinishing()) return;
+            if (bluetooth == null || !activityVisible) {
+                if (bindingCoordinator == null) {
+                    bindingCoordinator = coordinator; bindingGeneration = transportGeneration;
+                    bindingTimeout = this::failBindingWait;
+                    main.postDelayed(bindingTimeout, 10000);
+                }
+                setReceiverStatus("正在等待藍牙背景服務；尚未取得應用授權");
+                if (activityVisible && !serviceBound) failBindingWait();
+                return;
+            }
+            bluetoothDevicePreparation.accept(adapter);
+        } catch (SecurityException failure) { bondCancelled(); showSettings("附近裝置權限已撤銷；請修復後重掃"); }
+        catch (RuntimeException failure) { bondCancelled(); }
+    }
+    private void prepareBluetoothDevice(BluetoothAdapter adapter) {
+        try {
             BluetoothDevice device = adapter.getRemoteDevice(coordinator.selected().bluetoothAddress());
             if (device.getBondState() == BluetoothDevice.BOND_BONDED) { startBluetoothSession(device); return; }
             coordinator.waitForSystemBond(); bondingDevice = device; waitingBond = true;
@@ -613,6 +661,7 @@ public final class MainActivity extends Activity {
     private void showAuthenticationFailure(String message) {
         if (utterance.active()) cancelVoice();
         utterance.leave();
+        clearBindingWait();
         connectingAttempt = false; receiverAuthenticated = false;
         knownFailure = message;
         if (authorizationStore != null) reloadTargets();
@@ -639,7 +688,11 @@ public final class MainActivity extends Activity {
                     || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) bondCancelled();
             else { attachBondReceiver(); reconcileBond(); }
         }
-        bindService(new Intent(this, BluetoothConnectionService.class), serviceConnection, BIND_AUTO_CREATE);
+        try {
+            serviceBound = bindService(new Intent(this, BluetoothConnectionService.class), serviceConnection, BIND_AUTO_CREATE);
+            if (!serviceBound) failBindingWait();
+        } catch (RuntimeException failure) { serviceBound = false; failBindingWait(); }
+        continueBindingWait();
     }
 
     @Override protected void onStop() {
@@ -647,8 +700,12 @@ public final class MainActivity extends Activity {
         main.removeCallbacks(clockTick);
         leaveVoice();
         if (bluetooth != null) bluetooth.observe(null);
-        unbindService(serviceConnection);
-        bluetooth = null;
+        if (bluetoothSelected() && connectingAttempt && !waitingBond && permissionContinuation == null) {
+            clearBindingWait(); transportGeneration++; connectingAttempt = false;
+            setReceiverStatus("已離開連線畫面；請主動按連線，不會自動重連");
+        }
+        if (serviceBound) unbindService(serviceConnection);
+        serviceBound = false; bluetooth = null;
         super.onStop();
     }
 
@@ -672,6 +729,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        clearBindingWait();
         leaveVoice();
         unregisterReceiver(screenOffReceiver);
         transportGeneration++; snapshotGeneration++;
