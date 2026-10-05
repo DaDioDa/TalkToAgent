@@ -1,0 +1,98 @@
+[
+    {
+        "agentId":  "d6396fec-b980-422",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "58e9bc8e-11aa-4a4",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "c85d88b8-2882-44d",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "8d97cc0f-328c-413",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "5aaf662a-45f5-4ed",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "81928b7a-17b4-4bb",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "877f964e-8e9c-4df",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "4af8cccd-23ee-41d",
+        "source":  "completed execution transcript metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    }
+]

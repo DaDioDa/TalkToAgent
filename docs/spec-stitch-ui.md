@@ -1,6 +1,6 @@
 # TalkToAgent：Stitch 深色原生 UI 還原規格
 
-狀態：**需求已收斂，待實作與驗收。** 本次只建立本地規格，不發布 GitHub Issue、不修改 App 程式碼。
+狀態：**三票已實作並整合，自動驗證及獨立雙軸審查完成，待真人驗收。** 本規格與實作票只存本地；交付證據、APK 及驗收清單見 [整合交付報告](../.scratch/stitch-ui/reports/integration-final.md)。
 
 ## 目標與依據
 

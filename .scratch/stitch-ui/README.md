@@ -1,6 +1,8 @@
 # Stitch UI：本地實作票
 
-本組票只存本地，未建立 GitHub Issue；切票不代表 App 已實作或驗收。
+本組票只存本地，未建立 GitHub Issue。三票已在 `feat/stitch-native-ui` 實作並整合，自動驗證及獨立雙軸審查完成；真人驗收尚未完成。
+
+**交付入口：[整合結果、APK 與 human validation 清單](reports/integration-final.md)。**
 
 ## 接手資料
 

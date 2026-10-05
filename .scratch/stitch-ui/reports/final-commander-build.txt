@@ -1,0 +1,118 @@
+Calculating task graph as configuration cache cannot be reused because environment variable 'ANDROID_HOME' has changed.
+> Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:generateDebugResources
+> Task :app:extractDeepLinksDebug
+> Task :app:processDebugNavigationResources
+> Task :app:mapDebugSourceSetPaths
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:compileDebugNavigationResources
+> Task :app:javaPreCompileDebug
+> Task :app:authorizationTestAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugAndroidTestNavigationResources
+> Task :app:generateDebugAndroidTestResources
+> Task :app:javaPreCompileDebugAndroidTest
+> Task :app:packageDebugAndroidTestResources
+> Task :app:mergeDebugAndroidTestAssets
+> Task :app:parseDebugAndroidTestLocalResources
+> Task :app:compressDebugAndroidTestAssets
+> Task :app:checkDebugAarMetadata
+> Task :app:generateDebugAndroidTestRFile
+> Task :app:desugarDebugAndroidTestFileDependencies
+> Task :app:checkDebugAndroidTestAarMetadata
+> Task :app:mapDebugAndroidTestSourceSetPaths
+> Task :app:checkDebugAndroidTestDuplicateClasses
+> Task :app:compileDebugAndroidTestNavigationResources
+> Task :app:mergeLibDexDebugAndroidTest
+> Task :app:checkDebugDuplicateClasses
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeLibDexDebug
+> Task :app:mergeDebugAndroidTestManifest
+> Task :app:packageDebugResources
+> Task :app:generateDebugGlobalSynthetics
+> Task :app:processDebugAndroidTestManifest
+> Task :app:mergeDebugAndroidTestJniLibFolders
+> Task :app:validateSigningDebugAndroidTest
+> Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+> Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+> Task :app:writeDebugAndroidTestSigningConfigVersions
+> Task :app:parseDebugLocalResources
+> Task :app:extractProguardFiles
+> Task :app:generateDebugRFile
+> Task :app:compileDebugKotlin NO-SOURCE
+> Task :app:processDebugJavaRes NO-SOURCE
+> Task :app:generateDebugAndroidTestGlobalSynthetics
+> Task :app:mergeExtDexDebugAndroidTest
+> Task :app:mergeDebugAndroidTestResources
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugAndroidTestResources
+> Task :app:generateDebugLintReportModel
+> Task :app:mergeDebugJavaResource
+> Task :app:mergeDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:processDebugResources
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:dexBuilderDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:lintAnalyzeDebug
+> Task :app:packageDebug
+> Task :app:assembleDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:compileDebugAndroidTestKotlin
+> Task :app:processDebugAndroidTestJavaRes
+> Task :app:lintAnalyzeDebugAndroidTest
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///D:/TalkToAgent/app/build/reports/lint-results-debug.html
+Wrote SARIF report to file:///D:/TalkToAgent/app/build/reports/lint-results-debug.sarif
+
+> Task :app:lintDebug
+> Task :app:mergeDebugAndroidTestJavaResource
+> Task :app:compileDebugUnitTestJavaWithJavac
+
+> Task :app:compileDebugAndroidTestJavaWithJavac
+gradlew.bat : Note: D:\TalkToAgent\app\src\androidTest\java\com\example\talktoagent\StitchSecondaryScreenTest.java uses
+ or overrides a deprecated API.
+位於 線路:1 字元:720
++ ... DROID_HOME; & .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Note: D:\TalkTo...deprecated API.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderDebugAndroidTest
+> Task :app:mergeProjectDexDebugAndroidTest
+> Task :app:packageDebugAndroidTest
+> Task :app:assembleDebugAndroidTest
+> Task :app:createDebugAndroidTestApkListingFileRedirect
+> Task :app:testDebugUnitTest
+
+[Incubating] Problems report is available at: file:///D:/TalkToAgent/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 22s
+81 actionable tasks: 81 executed
+Configuration cache entry stored.
