@@ -16,9 +16,9 @@ public class NativeCProductionTest {
     @Test public void diagnosticsAndLatestAreHiddenAndLeavingDoesNotStartVoice() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             onView(withHint("手動測試文字")).check(doesNotExist());
-            onView(withText("設定")).perform(click());
-            onView(withText("診斷／手動測試")).perform(click());
-            onView(withHint("手動測試文字")).check(matches(isDisplayed()));
+            onView(withContentDescription("設定")).perform(click());
+            onView(withText("診斷／手動測試")).perform(scrollTo(), click());
+            onView(withHint("手動測試文字")).perform(scrollTo()).check(matches(isDisplayed()));
             onView(withText("返回主畫面")).perform(click());
             onView(withText("最近定稿")).perform(scrollTo(), click());
             onView(withText("尚無定稿")).check(matches(isDisplayed()));
@@ -34,9 +34,9 @@ public class NativeCProductionTest {
     @Test public void channelSelectionAndDisconnectUseProductionHandlersWithoutStartingCapture() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             onView(withText("裝置連線")).perform(click());
-            onView(withText("通道：藍牙")).perform(click());
-            onView(withText("通道：Wi-Fi")).perform(click());
-            onView(withText("主動中斷連線")).perform(click());
+            onView(withText("通道：藍牙")).perform(scrollTo(), click());
+            onView(withText("通道：Wi-Fi")).perform(scrollTo(), click());
+            onView(withText("主動中斷連線")).perform(scrollTo(), click());
             onView(withText("返回主畫面")).perform(click());
             onView(withText("取消")).check(matches(isNotEnabled()));
             onView(withContentDescription("開始語音輸入")).check(matches(isNotEnabled()));

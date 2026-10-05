@@ -52,7 +52,8 @@ public class NativeCScreenTest {
                     onView(withContentDescription(i == 3 ? "結束並送出" : "開始語音輸入"))
                             .check(matches(start ? isEnabled() : isNotEnabled()));
                     onView(withText("取消")).check(matches(cancel[i] ? isEnabled() : isNotEnabled()));
-                    for (String entry : new String[]{"裝置連線", "設定", "最近定稿"})
+                    onView(withContentDescription("設定")).check(matches(busy[i] ? isNotEnabled() : isEnabled()));
+                    for (String entry : new String[]{"裝置連線", "最近定稿"})
                         onView(withText(entry)).check(matches(busy[i] ? isNotEnabled() : isEnabled()));
                     if (busy[i]) onView(withText("先前的定稿")).check(doesNotExist());
                     else onView(withText("先前的定稿")).perform(scrollTo()).check(matches(isDisplayed()));
@@ -135,7 +136,7 @@ public class NativeCScreenTest {
             });
             onView(withText("清除金鑰")).perform(click());
             onView(withText("返回主畫面")).perform(click());
-            onView(withText("設定")).perform(click());
+            onView(withContentDescription("設定")).perform(click());
             onView(withText("麥克風權限")).perform(click());
             onView(withText("請求麥克風權限")).perform(click());
             assertEquals(NativeCScreen.Action.REQUEST_PERMISSION, events.get(events.size() - 1).action);
@@ -154,13 +155,13 @@ public class NativeCScreenTest {
                 screen[0] = new NativeCScreen(a, e -> {}); a.setContentView(screen[0]);
                 screen[0].render(snapshot(NativeCScreen.Phase.READY, true, ""));
             });
-            onView(withText("設定")).perform(click()); onView(withText("Gemini 金鑰")).perform(click());
+            onView(withContentDescription("設定")).perform(click()); onView(withText("Gemini 金鑰")).perform(scrollTo(), click());
             onView(withHint("新金鑰（不顯示已存金鑰）")).perform(replaceText("draft"), closeSoftKeyboard());
             scenario.onActivity(a -> screen[0].update(snapshot(NativeCScreen.Phase.UNAVAILABLE, false, "")));
             onView(withHint("新金鑰（不顯示已存金鑰）")).check(matches(withText("draft")));
-            onView(withText("返回主畫面")).perform(click()); onView(withText("設定")).perform(click());
-            onView(withText("診斷／手動測試")).perform(click());
-            onView(withHint("手動測試文字")).perform(replaceText("diagnostic draft"), closeSoftKeyboard());
+            onView(withText("返回主畫面")).perform(click()); onView(withContentDescription("設定")).perform(click());
+            onView(withText("診斷／手動測試")).perform(scrollTo(), click());
+            onView(withHint("手動測試文字")).perform(scrollTo(), replaceText("diagnostic draft"), closeSoftKeyboard());
             scenario.onActivity(a -> screen[0].update(snapshot(NativeCScreen.Phase.READY, true, "")));
             onView(withHint("手動測試文字")).check(matches(withText("diagnostic draft")));
             onView(withText("送出手動測試")).check(matches(isEnabled()));
@@ -180,9 +181,9 @@ public class NativeCScreenTest {
             onView(withText("最近定稿")).perform(scrollTo(), click());
             onView(withText("複製定稿")).perform(click());
             assertEquals("語音定稿", events.get(2).text);
-            onView(withText("返回主畫面")).perform(click()); onView(withText("設定")).perform(click());
-            onView(withText("診斷／手動測試")).perform(click());
-            onView(withHint("手動測試文字")).perform(replaceText("manual draft"), closeSoftKeyboard());
+            onView(withText("返回主畫面")).perform(click()); onView(withContentDescription("設定")).perform(click());
+            onView(withText("診斷／手動測試")).perform(scrollTo(), click());
+            onView(withHint("手動測試文字")).perform(scrollTo(), replaceText("manual draft"), closeSoftKeyboard());
             onView(withText("送出手動測試")).perform(click());
             assertEquals(NativeCScreen.Action.MANUAL_SEND, events.get(events.size() - 1).action);
             assertEquals("manual draft", events.get(events.size() - 1).text);

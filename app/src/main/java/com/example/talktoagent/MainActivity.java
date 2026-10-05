@@ -250,7 +250,7 @@ public final class MainActivity extends Activity {
                     if (!shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)
                             && getPreferences(MODE_PRIVATE).getBoolean("microphoneRequested", false)) showSettings("請允許麥克風權限，再主動開始");
                     else { getPreferences(MODE_PRIVATE).edit().putBoolean("microphoneRequested", true).apply(); requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1); }
-                }
+                } else setVoiceStatus("已允許麥克風；請返回並主動開始（目前沒有收音）");
                 break;
             case MANUAL_SEND: sendManual(event.text); break;
         }
