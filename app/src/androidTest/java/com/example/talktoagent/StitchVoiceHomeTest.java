@@ -48,6 +48,28 @@ public class StitchVoiceHomeTest {
             assertEquals(NativeCScreen.Action.FINISH, events.get(0).action);
         }
     }
+    @Test public void longFinalCanBeOpenedAndCopiedInFullWithLargeFontWithoutSending() throws Exception {
+        List<NativeCScreen.Event> events = new ArrayList<>();
+        String finalText = String.join("", Collections.nCopies(80, "長篇轉錄定稿，保留全文與標點。"));
+        try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
+            scenario.onActivity(a -> {
+                android.content.res.Configuration config = new android.content.res.Configuration(a.getResources().getConfiguration());
+                config.fontScale = 2f;
+                NativeCScreen screen = new NativeCScreen(a.createConfigurationContext(config), events::add);
+                a.setContentView(screen);
+                screen.render(new NativeCScreen.State(NativeCScreen.Phase.CANCELLED, true,
+                        "測試電腦", 0, finalText, Collections.emptyList()));
+            });
+            onView(withText("最近定稿")).perform(androidx.test.espresso.action.ViewActions.scrollTo(), click());
+            onView(withText(finalText)).check(matches(isDisplayed()));
+            onView(withText("複製定稿")).perform(androidx.test.espresso.action.ViewActions.scrollTo(), click());
+            assertEquals(2, events.size());
+            assertEquals(NativeCScreen.Action.LATEST, events.get(0).action);
+            assertEquals(NativeCScreen.Action.COPY, events.get(1).action);
+            assertEquals(finalText, events.get(1).text);
+            NativeCScreenTest.saveScreenshot("stitch-long-final-font2-copy");
+        }
+    }
     @Test public void homeShowsLatestSummaryAndCopyNeverSends() {
         List<NativeCScreen.Event> events = new ArrayList<>();
         try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
