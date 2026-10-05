@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#0c1324;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}
+  @keyframes blinkCursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  .typing-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.15em;
+    vertical-align: -0.15em;
+    animation: blinkCursor 0.8s infinite;
+  }
+</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "secondary-fixed-dim": "#00daf3", "inverse-primary": "#006c44", "on-error": "#690005", "tertiary-container": "#ffd085", "surface-container-lowest": "#070d1f", "tertiary-fixed": "#ffdeac", "primary-fixed-dim": "#00e293", "surface-tint": "#00e293", "error-container": "#93000a", "surface-dim": "#0c1324", "tertiary-fixed-dim": "#ffba38", "surface-variant": "#2e3447", "on-primary": "#003921", "outline": "#849588", "surface-container-high": "#23293c", "on-secondary-container": "#00616d", "inverse-surface": "#dce1fb", "on-surface-variant": "#b9cbbd", "surface-container-highest": "#2e3447", "error": "#ffb4ab", "secondary-container": "#00e3fd", "surface": "#0c1324", "on-surface": "#dce1fb", "on-error-container": "#ffdad6", "on-secondary": "#00363d", "surface-container-low": "#151b2d", "tertiary": "#fff2e2", "primary-container": "#00f5a0", "on-primary-fixed": "#002111", "background": "#0c1324", "on-tertiary-container": "#7d5600", "on-secondary-fixed": "#001f24", "secondary-fixed": "#9cf0ff", "outline-variant": "#3b4a40", "primary": "#cdffde", "on-tertiary": "#432c00", "secondary": "#bdf4ff", "surface-bright": "#33394c", "on-primary-container": "#006b43", "on-primary-fixed-variant": "#005232", "on-tertiary-fixed-variant": "#604100", "surface-container": "#191f31", "on-secondary-fixed-variant": "#004f58", "inverse-on-surface": "#2a3043", "on-background": "#dce1fb", "on-tertiary-fixed": "#281900", "primary-fixed": "#50ffaf" }, borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, spacing: { "gutter-desktop": "2rem", "margin-tablet": "2rem", "space-sm": "0.5rem", "margin-desktop": "3rem", "space-lg": "1.5rem", "gutter-tablet": "1.5rem", "space-md": "1rem", "space-xl": "2.5rem", "gutter": "1rem", "space-xs": "0.25rem", "margin": "1rem" }, fontFamily: { "display-lg-mobile": ["Space Grotesk"], "display-lg": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "body-lg": ["Geist"], "body-sm": ["Geist"], "label-sm": ["JetBrains Mono"], "label-lg": ["JetBrains Mono"], "body-md": ["Geist"], "headline-sm": ["Space Grotesk"], "label-md": ["JetBrains Mono"] }, fontSize: { "display-lg-mobile": ["32px", { "lineHeight": "40px", "fontWeight": "700" }], "display-lg": ["44px", { "lineHeight": "52px", "fontWeight": "700" }], "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-sm": ["10px", { "lineHeight": "12px", "fontWeight": "600" }], "label-lg": ["14px", { "lineHeight": "18px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "500" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.25)]"><div class="h-16 px-gutter flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm min-w-0"><img alt="TalkToAgent App Logo" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1VJhp96rEbpME5YBWA0Ew_6hMr6kK_U3fRtR3mOX-UGUDJ3TlTFksWHpm4ZzL1qICSrYnSvYrE16YT_pChQpC8966A2ZvJOE3_dZVaLp5hO5_hC_Wcq4H4shQP7K-JQ8-4vT9urB6ARD5NWWVJZxCr8SMhPO4oXRujFisO6ExMvGAwfpel3cH4UFG3dP8ZfI_zrZNn0dYuxI_LTf3iB3mlYucu3WfFMu9XwFCzXBRZOr8o4y1gPdGHL7zY"/><div class="flex flex-col min-w-0"><span class="font-headline-sm text-headline-sm text-primary tracking-tight truncate leading-tight">TalkToAgent</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider truncate">Voice Input</span></div></div><div class="flex items-center gap-space-xs"><div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-container/15 text-primary-fixed"><span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim animate-pulse"></span><span class="material-symbols-outlined text-[14px]">desktop_windows</span><span class="font-label-sm text-label-sm tracking-wide hidden xs:inline">WIN-AGENT</span></div><a class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface active:bg-surface-container transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[22px]">tune</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface px-gutter"><div class="flex flex-col w-full gap-space-md">
+<!-- Top System Status Card: Hyper-glanceable & High-contrast Interactive State -->
+<section class="w-full rounded-2xl bg-surface-container-low p-space-md shadow-xl flex flex-col gap-space-sm relative overflow-hidden transition-all duration-300" id="top-status-card">
+<!-- Ambient Glow Accent behind status -->
+<div class="absolute -right-8 -top-8 w-36 h-36 bg-primary-container/10 rounded-full blur-2xl pointer-events-none transition-all duration-500" id="top-glow"></div>
+<div class="flex items-center justify-between">
+<!-- Badge Pill: toggles between Ready, Listening & Sent -->
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/15 text-primary-fixed transition-colors" id="status-pill">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-fixed-dim opacity-75" id="status-dot-ping"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container" id="status-dot"></span>
+</span>
+<span class="font-label-md text-label-md tracking-wider font-semibold uppercase text-primary" id="status-text">輸入就緒 · READY</span>
+</div>
+<!-- Telemetry Ping / Streaming Duration Badge -->
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm" id="telemetry-badge">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed-dim" id="telemetry-icon">wifi_tethering</span>
+<span class="text-primary-fixed font-medium" id="telemetry-val">12 ms</span>
+<span class="text-on-surface-variant/60" id="telemetry-sub">延遲極低</span>
+</div>
+</div>
+<!-- Active Link Context Detail -->
+<div class="flex flex-col gap-1.5 pt-1">
+<div class="flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-[20px] text-secondary-fixed">desktop_windows</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight truncate">WORKSTATION-WIN11</h2>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary-container">terminal</span>
+<p class="font-body-md text-body-md text-on-surface-variant truncate">
+          目標焦點：<span class="text-secondary font-medium">Visual Studio Code</span> <span class="text-primary-fixed text-body-sm font-normal" id="target-focus-hint">（游標輸入活躍中）</span>
+</p>
+</div>
+</div>
+<!-- Live Telemetry Sub-bar -->
+<div class="pt-2 flex items-center justify-between bg-surface-container/60 rounded-xl px-3 py-2">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim" id="stream-indicator"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate" id="stream-mode-label">音訊管道：WebRTC 極速串流</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary-fixed-dim uppercase tracking-wider shrink-0" id="stream-sub-tag">雙向加強</span>
+</div>
+</section>
+<!-- Middle Card: Contextual Morphing (Recent Sent History vs Live Speech Recognition) -->
+<section class="w-full rounded-2xl bg-surface-container p-space-md flex flex-col gap-2.5 shadow-md transition-all duration-300 relative overflow-hidden" id="middle-content-card">
+<!-- Default / History State -->
+<div class="flex flex-col gap-2 transition-opacity duration-300" id="history-container">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">history</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider" id="history-title">最近一次送出記錄</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/80" id="history-time">已送達 · 2 分鐘前</span>
+</div>
+<div class="rounded-xl bg-surface-container-lowest p-3 flex items-start gap-2.5 border border-surface-container-high/40">
+<span class="material-symbols-outlined text-[18px] text-primary-container shrink-0 mt-0.5" id="history-icon" style="font-variation-settings: 'FILL' 1;">done_all</span>
+<p class="font-body-md text-body-md text-on-surface leading-relaxed" id="history-text">
+        「好的，我已經把修正後的 API 規格整理好發過去了。」
+      </p>
+</div>
+</div>
+<!-- Live Recording Streaming Speech Card (Hidden in ready mode, revealed when recording) -->
+<div class="hidden flex-col gap-2.5 transition-opacity duration-300" id="live-transcription-container">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-secondary-fixed">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed animate-ping"></span>
+<span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider">即時語音辨識流 (ASR Live)</span>
+</div>
+<span class="inline-flex items-center gap-1 text-[11px] font-label-sm px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-fixed">
+<span class="material-symbols-outlined text-[13px]">bolt</span> 即時串流
+      </span>
+</div>
+<div class="rounded-xl bg-surface-container-lowest p-3.5 flex flex-col gap-2 border border-primary-container/30 shadow-[0_0_15px_rgba(0,245,160,0.08)]">
+<div class="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px] text-primary-container">edit_note</span>
+<span>辨識文字：</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface leading-relaxed tracking-wide min-h-[44px]">
+<span class="text-primary font-medium" id="realtime-text">請幫我確認下週三下午兩點的產品架構審查會議</span><span class="typing-cursor bg-primary-container ml-0.5"></span>
+</p>
+<div class="flex items-center justify-between pt-1 border-t border-surface-container/80 text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1 text-primary-fixed/80">
+<span class="material-symbols-outlined text-[13px]">translate</span> 繁體中文 · 自動標點
+        </span>
+<span class="text-on-surface-variant/70">放開或點擊停止即貼入</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Ambient Waveform Monitor Canvas (Visualizer with dynamic pulse) -->
+<section class="w-full bg-surface-container-lowest/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-inner border border-surface-container/40">
+<div class="w-full flex items-center justify-between px-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">輸入音量監測</span>
+<span class="font-label-sm text-label-sm text-primary-fixed transition-colors" id="mic-status-label">環境噪音抑制中</span>
+</div>
+<!-- 32-bar visualizer layout -->
+<div class="w-full h-11 flex items-center justify-center gap-[3px] py-1" id="visualizer-bars">
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/50 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-5 rounded-full bg-primary-container/60 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-6 rounded-full bg-primary-container/70 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/50 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-5 rounded-full bg-primary-container/60 transition-all duration-150"></div>
+<div class="w-[3px] h-8 rounded-full bg-primary-container transition-all duration-150"></div>
+<div class="w-[3px] h-6 rounded-full bg-primary-container/80 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/60 transition-all duration-150"></div>
+<div class="w-[3px] h-5 rounded-full bg-primary-container/70 transition-all duration-150"></div>
+<div class="w-[3px] h-9 rounded-full bg-primary-container transition-all duration-150"></div>
+<div class="w-[3px] h-6 rounded-full bg-primary-container/80 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/60 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-5 rounded-full bg-primary-container/60 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/50 transition-all duration-150"></div>
+<div class="w-[3px] h-6 rounded-full bg-primary-container/70 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-4 rounded-full bg-secondary-container/50 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-3 rounded-full bg-primary-container/40 transition-all duration-150"></div>
+<div class="w-[3px] h-2 rounded-full bg-primary-container/30 transition-all duration-150"></div>
+<div class="w-[3px] h-1.5 rounded-full bg-primary-container/20 transition-all duration-150"></div>
+</div>
+</section>
+<!-- Core Single-Handed Operation Zone: Master Voice Dictation Trigger + Cancel Button -->
+<section class="w-full flex flex-col items-center justify-center pt-1 pb-2">
+<!-- Trigger Container with Concentric Pulse Effect -->
+<div class="relative flex items-center justify-center">
+<!-- Ambient Outer Glow Rings -->
+<div class="absolute w-36 h-36 rounded-full bg-primary-container/20 transition-all duration-300 pointer-events-none" id="mic-pulse-ring"></div>
+<div class="absolute w-48 h-48 rounded-full bg-primary-container/10 blur-xl pointer-events-none transition-all duration-500" id="mic-glow-halo"></div>
+<!-- Tactile Circle Trigger Button -->
+<button aria-label="開始語音輸入" class="relative z-10 w-24 h-24 rounded-full bg-surface-container-high hover:bg-surface-bright flex flex-col items-center justify-center shadow-[0_0_32px_rgba(0,245,160,0.35)] active:scale-95 transition-all duration-200 cursor-pointer select-none" id="master-mic-button" type="button">
+<!-- Concentric Inner Circle Highlight -->
+<div class="w-20 h-20 rounded-full bg-gradient-to-tr from-primary-container via-primary-fixed to-secondary-container flex items-center justify-center shadow-lg transition-transform duration-200" id="mic-inner-circle">
+<span class="material-symbols-outlined text-[38px] text-on-primary font-bold transition-all duration-200" id="mic-icon">mic</span>
+</div>
+</button>
+</div>
+<!-- Interaction Hint -->
+<div class="flex flex-col items-center gap-1.5 mt-4">
+<span class="font-headline-sm text-headline-sm font-semibold text-primary-fixed tracking-tight transition-colors duration-200 text-center" id="mic-action-hint">
+        按一下開始說話
+      </span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-secondary" id="mode-icon">touch_app</span>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface underline underline-offset-4 decoration-primary-container/40" id="mode-toggle-btn" type="button">
+          長按模式：可切換「按住說話」
+        </button>
+</div>
+</div>
+<!-- Dedicated Cancel Voice Input Capsule Button (Explicitly Requested) -->
+<div class="mt-4 w-full flex items-center justify-center transition-all duration-300" id="cancel-btn-wrapper">
+<button aria-label="取消語音輸入" class="group flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-container-high/90 hover:bg-surface-bright border border-surface-container-highest/80 text-on-surface-variant hover:text-error active:scale-95 transition-all shadow-sm cursor-pointer select-none opacity-50 pointer-events-none" id="cancel-dictation-btn" type="button">
+<span class="material-symbols-outlined text-[18px] group-hover:text-error transition-colors">close</span>
+<span class="font-label-md text-label-md tracking-wide group-hover:text-error transition-colors">取消語音輸入</span>
+</button>
+</div>
+</section>
+<!-- Interactive Client Behavior Script: Real-time In-Place State Machine -->
+<script>
+    (function () {
+      const micBtn = document.getElementById('master-mic-button');
+      const micIcon = document.getElementById('mic-icon');
+      const micHint = document.getElementById('mic-action-hint');
+      const micStatusLabel = document.getElementById('mic-status-label');
+      const pulseRing = document.getElementById('mic-pulse-ring');
+      const glowHalo = document.getElementById('mic-glow-halo');
+      const micInner = document.getElementById('mic-inner-circle');
+      const bars = document.querySelectorAll('#visualizer-bars > div');
+      const modeBtn = document.getElementById('mode-toggle-btn');
+      const modeIcon = document.getElementById('mode-icon');
+      const cancelBtn = document.getElementById('cancel-dictation-btn');
+      
+      // Top status elements
+      const statusPill = document.getElementById('status-pill');
+      const statusText = document.getElementById('status-text');
+      const statusDot = document.getElementById('status-dot');
+      const statusDotPing = document.getElementById('status-dot-ping');
+      const telemetryVal = document.getElementById('telemetry-val');
+      const telemetrySub = document.getElementById('telemetry-sub');
+      const telemetryIcon = document.getElementById('telemetry-icon');
+      const streamModeLabel = document.getElementById('stream-mode-label');
+      const streamSubTag = document.getElementById('stream-sub-tag');
+      const targetFocusHint = document.getElementById('target-focus-hint');
+      
+      // Middle card containers
+      const historyContainer = document.getElementById('history-container');
+      const liveTransContainer = document.getElementById('live-transcription-container');
+      const historyText = document.getElementById('history-text');
+      const historyTime = document.getElementById('history-time');
+      const realtimeTextEl = document.getElementById('realtime-text');
+
+      let isRecording = false;
+      let isHoldMode = false;
+      let animInterval = null;
+      let timerInterval = null;
+      let recordSeconds = 0;
+      let typeInterval = null;
+
+      const sampleSentences = [
+        "請幫我確認下週三下午兩點的產品架構審查會議",
+        "更新設定，將音訊辨識模式調整為低延遲即時串流",
+        "好的，我已經把修正後的 API 規格整理好發過去了。"
+      ];
+
+      function formatTime(secs) {
+        const m = String(Math.floor(secs / 60)).padStart(2, '0');
+        const s = String(secs % 60).padStart(2, '0');
+        return `${m}:${s}`;
+      }
+
+      function updateVisualizer(active) {
+        if (active) {
+          animInterval = setInterval(() => {
+            bars.forEach((bar) => {
+              const h = Math.floor(Math.random() * 32) + 6;
+              bar.style.height = `${h}px`;
+              bar.style.opacity = '1';
+            });
+          }, 80);
+        } else {
+          clearInterval(animInterval);
+          bars.forEach((bar) => {
+            bar.style.height = '';
+            bar.style.opacity = '';
+          });
+        }
+      }
+
+      function startTypingDemo() {
+        const fullText = "請幫我確認下週三下午兩點的產品架構審查會議，並通知團隊成員。";
+        let index = 14;
+        realtimeTextEl.textContent = fullText.slice(0, index);
+        clearInterval(typeInterval);
+        typeInterval = setInterval(() => {
+          if (index < fullText.length) {
+            index++;
+            realtimeTextEl.textContent = fullText.slice(0, index);
+          }
+        }, 320);
+      }
+
+      function startRecording() {
+        if (isRecording) return;
+        isRecording = true;
+        recordSeconds = 0;
+
+        // Top Status Card updates to Listening State
+        statusPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary-container/25 text-secondary-fixed transition-colors";
+        statusText.textContent = "正在聆聽與即時辨識中 · 00:00";
+        statusText.className = "font-label-md text-label-md tracking-wider font-semibold uppercase text-secondary-fixed";
+        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary-container";
+        statusDotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-fixed-dim opacity-90";
+        
+        telemetryIcon.textContent = "record_voice_over";
+        telemetryIcon.className = "material-symbols-outlined text-[14px] text-secondary-fixed animate-pulse";
+        telemetryVal.textContent = "即時同步";
+        telemetryVal.className = "text-secondary-fixed font-medium";
+        telemetrySub.textContent = "串流中";
+        
+        streamModeLabel.textContent = "音訊管道：WebRTC 雙向音訊流 (48kHz)";
+        streamSubTag.textContent = "REC 錄音中";
+        streamSubTag.className = "font-label-sm text-label-sm text-secondary-fixed font-semibold uppercase tracking-wider shrink-0";
+        targetFocusHint.textContent = "（正在接收即時鍵盤文字串流...）";
+
+        // Timer counter
+        timerInterval = setInterval(() => {
+          recordSeconds++;
+          statusText.textContent = `正在聆聽與即時辨識中 · ${formatTime(recordSeconds)}`;
+        }, 1000);
+
+        // Middle Card Morph to Live Streaming ASR
+        historyContainer.classList.add('hidden');
+        liveTransContainer.classList.remove('hidden');
+        liveTransContainer.classList.add('flex');
+        startTypingDemo();
+
+        // Waveform & Status label
+        micStatusLabel.textContent = "即時收音中 (48kHz · 極低延遲)";
+        micStatusLabel.classList.add('text-secondary-fixed');
+
+        // Master Button morphing to active pulsating state
+        micIcon.textContent = "stop";
+        micInner.className = "w-20 h-20 rounded-full bg-gradient-to-tr from-secondary-container via-primary-container to-primary flex items-center justify-center shadow-lg transition-transform duration-200 animate-pulse";
+        pulseRing.classList.remove('animate-ping');
+        pulseRing.classList.add('animate-ping', 'bg-secondary-container/30');
+        glowHalo.classList.add('bg-secondary-container/20');
+        micHint.textContent = "正在錄音中 (按一下停止並送出)";
+        micHint.className = "font-headline-sm text-headline-sm font-semibold text-secondary-fixed tracking-tight transition-colors duration-200 text-center";
+
+        // Enable Cancel Button
+        cancelBtn.classList.remove('opacity-50', 'pointer-events-none');
+        cancelBtn.classList.add('opacity-100', 'hover:border-error/40', 'hover:bg-error-container/20');
+
+        updateVisualizer(true);
+      }
+
+      function stopAndSend() {
+        if (!isRecording) return;
+        isRecording = false;
+        clearInterval(timerInterval);
+        clearInterval(typeInterval);
+        updateVisualizer(false);
+
+        const finalizedText = realtimeTextEl.textContent || "請幫我確認下週三下午兩點的產品架構審查會議，並通知團隊成員。";
+
+        // Morph to "Sent / Success" feedback briefly then back to Ready
+        statusPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/20 text-primary-fixed transition-colors";
+        statusText.textContent = "文字已送出至目標焦點 ✓";
+        statusText.className = "font-label-md text-label-md tracking-wider font-semibold uppercase text-primary";
+        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container";
+        statusDotPing.className = "hidden";
+        
+        telemetryIcon.textContent = "done_all";
+        telemetryIcon.className = "material-symbols-outlined text-[14px] text-primary-fixed";
+        telemetryVal.textContent = "已貼上";
+        telemetryVal.className = "text-primary-fixed font-medium";
+        telemetrySub.textContent = "0 ms";
+
+        targetFocusHint.textContent = "（已完成寫入）";
+
+        // Update History Card with the new sentence
+        historyText.textContent = `「${finalizedText}」`;
+        historyTime.textContent = "剛剛已送達";
+        liveTransContainer.classList.add('hidden');
+        liveTransContainer.classList.remove('flex');
+        historyContainer.classList.remove('hidden');
+
+        // Reset Button UI
+        micIcon.textContent = "mic";
+        micInner.className = "w-20 h-20 rounded-full bg-gradient-to-tr from-primary-container via-primary-fixed to-secondary-container flex items-center justify-center shadow-lg transition-transform duration-200";
+        pulseRing.className = "absolute w-36 h-36 rounded-full bg-primary-container/15 animate-ping pointer-events-none";
+        glowHalo.className = "absolute w-48 h-48 rounded-full bg-primary-container/5 blur-xl pointer-events-none";
+        micHint.textContent = isHoldMode ? "按住說話，放開即送出" : "按一下開始說話";
+        micHint.className = "font-headline-sm text-headline-sm font-semibold text-primary-fixed tracking-tight transition-colors duration-200 text-center";
+        micStatusLabel.textContent = "環境噪音抑制中";
+        micStatusLabel.classList.remove('text-secondary-fixed');
+
+        // Disable Cancel Button
+        cancelBtn.classList.add('opacity-50', 'pointer-events-none');
+        cancelBtn.classList.remove('opacity-100', 'hover:border-error/40', 'hover:bg-error-container/20');
+
+        // Restore normal ready state text after 2.5 seconds
+        setTimeout(() => {
+          if (!isRecording) {
+            statusText.textContent = "輸入就緒 · READY";
+            statusDotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-fixed-dim opacity-75";
+            telemetryIcon.textContent = "wifi_tethering";
+            telemetryVal.textContent = "12 ms";
+            telemetrySub.textContent = "延遲極低";
+            streamModeLabel.textContent = "音訊管道：WebRTC 極速串流";
+            streamSubTag.textContent = "雙向加強";
+            targetFocusHint.textContent = "（游標輸入活躍中）";
+          }
+        }, 2500);
+      }
+
+      function cancelRecording() {
+        if (!isRecording) return;
+        isRecording = false;
+        clearInterval(timerInterval);
+        clearInterval(typeInterval);
+        updateVisualizer(false);
+
+        // Flash Cancelled Status
+        statusPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant transition-colors";
+        statusText.textContent = "已取消輸入 · CANCELLED";
+        statusText.className = "font-label-md text-label-md tracking-wider font-semibold uppercase text-on-surface-variant";
+        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-outline";
+        statusDotPing.className = "hidden";
+
+        telemetryIcon.textContent = "close";
+        telemetryIcon.className = "material-symbols-outlined text-[14px] text-on-surface-variant";
+        telemetryVal.textContent = "未傳送";
+        telemetryVal.className = "text-on-surface-variant font-medium";
+        telemetrySub.textContent = "已捨棄";
+
+        // Return to history
+        liveTransContainer.classList.add('hidden');
+        liveTransContainer.classList.remove('flex');
+        historyContainer.classList.remove('hidden');
+
+        // Reset Button UI
+        micIcon.textContent = "mic";
+        micInner.className = "w-20 h-20 rounded-full bg-gradient-to-tr from-primary-container via-primary-fixed to-secondary-container flex items-center justify-center shadow-lg transition-transform duration-200";
+        pulseRing.className = "absolute w-36 h-36 rounded-full bg-primary-container/15 animate-ping pointer-events-none";
+        glowHalo.className = "absolute w-48 h-48 rounded-full bg-primary-container/5 blur-xl pointer-events-none";
+        micHint.textContent = isHoldMode ? "按住說話，放開即送出" : "按一下開始說話";
+        micHint.className = "font-headline-sm text-headline-sm font-semibold text-primary-fixed tracking-tight transition-colors duration-200 text-center";
+        micStatusLabel.textContent = "環境噪音抑制中";
+        micStatusLabel.classList.remove('text-secondary-fixed');
+
+        // Disable Cancel Button
+        cancelBtn.classList.add('opacity-50', 'pointer-events-none');
+        cancelBtn.classList.remove('opacity-100', 'hover:border-error/40', 'hover:bg-error-container/20');
+
+        setTimeout(() => {
+          if (!isRecording) {
+            statusPill.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/15 text-primary-fixed transition-colors";
+            statusText.textContent = "輸入就緒 · READY";
+            statusText.className = "font-label-md text-label-md tracking-wider font-semibold uppercase text-primary";
+            statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container";
+            statusDotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-fixed-dim opacity-75";
+            telemetryIcon.textContent = "wifi_tethering";
+            telemetryVal.textContent = "12 ms";
+            telemetrySub.textContent = "延遲極低";
+            streamModeLabel.textContent = "音訊管道：WebRTC 極速串流";
+            streamSubTag.textContent = "雙向加強";
+            targetFocusHint.textContent = "（游標輸入活躍中）";
+          }
+        }, 1200);
+      }
+
+      // Click behavior
+      micBtn.addEventListener('click', (e) => {
+        if (!isHoldMode) {
+          if (isRecording) {
+            stopAndSend();
+          } else {
+            startRecording();
+          }
+        }
+      });
+
+      // Hold mode support
+      micBtn.addEventListener('touchstart', (e) => {
+        if (isHoldMode && !isRecording) {
+          startRecording();
+        }
+      });
+
+      micBtn.addEventListener('touchend', (e) => {
+        if (isHoldMode && isRecording) {
+          stopAndSend();
+        }
+      });
+
+      // Cancel button action
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cancelRecording();
+      });
+
+      // Switch Hold / Tap mode
+      modeBtn.addEventListener('click', () => {
+        isHoldMode = !isHoldMode;
+        if (isHoldMode) {
+          modeBtn.textContent = "目前模式：按住說話（點此切換為單擊模式）";
+          modeIcon.textContent = "touch_app";
+          if (!isRecording) {
+            micHint.textContent = "按住說話，放開即送出";
+          }
+        } else {
+          modeBtn.textContent = "長按模式：可切換「按住說話」";
+          modeIcon.textContent = "touch_app";
+          if (!isRecording) {
+            micHint.textContent = "按一下開始說話";
+          }
+        }
+      });
+    })();
+  </script>
+</div></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface-container-low/90 backdrop-blur-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.45)]" data-active-classes="text-primary-container font-semibold"><div class="flex justify-around items-center h-20 px-space-xs px-gutter"><a aria-current="page" class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-14 rounded-2xl transition-all active:scale-95 text-primary-container font-semibold flex-1" data-path="voice-input" href="#"><span class="material-symbols-outlined text-[24px]">mic</span><span class="font-label-sm text-label-sm tracking-tight">語音輸入</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-14 rounded-2xl text-on-surface-variant hover:text-on-surface transition-all active:scale-95 flex-1" data-path="device-pairing" href="#"><span class="material-symbols-outlined text-[24px]">devices_fold</span><span class="font-label-sm text-label-sm tracking-tight">裝置配對</span></a></div></nav>
+</body></html>
