@@ -1,0 +1,6 @@
+
+com.example.talktoagent.StitchSecondaryScreenTest:.
+
+Time: 46.642
+
+OK (1 test)

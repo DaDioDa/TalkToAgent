@@ -1,0 +1,71 @@
+
+com.example.talktoagent.StitchSecondaryScreenTest:
+Error in tabsExposeSelectionAndSettingsHasAccessibleTouchTarget(com.example.talktoagent.StitchSecondaryScreenTest):
+androidx.test.espresso.base.AssertionErrorHandler$AssertionFailedWithCauseError: expected:<66> but was:<54>
+	at dalvik.system.VMStack.getThreadStackTrace(Native Method)
+	at java.lang.Thread.getStackTrace(Thread.java:1960)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:3)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:1)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:5)
+	at androidx.test.espresso.ViewInteraction.check(ViewInteraction.java:12)
+	at com.example.talktoagent.StitchSecondaryScreenTest.tabsExposeSelectionAndSettingsHasAccessibleTouchTarget(StitchSecondaryScreenTest.java:106)
+	... 32 trimmed
+Caused by: java.lang.AssertionError: expected:<66> but was:<54>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:647)
+	at org.junit.Assert.assertEquals(Assert.java:633)
+	at com.example.talktoagent.StitchSecondaryScreenTest.lambda$tabStyle$0(StitchSecondaryScreenTest.java:118)
+	at com.example.talktoagent.StitchSecondaryScreenTest$$ExternalSyntheticLambda15.check(D8$$SyntheticClass:0)
+	at androidx.test.espresso.ViewInteraction$SingleExecutionViewAssertion.check(ViewInteraction.java:2)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:14)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+
+
+Time: 5.491
+There was 1 failure:
+1) tabsExposeSelectionAndSettingsHasAccessibleTouchTarget(com.example.talktoagent.StitchSecondaryScreenTest)
+androidx.test.espresso.base.AssertionErrorHandler$AssertionFailedWithCauseError: expected:<66> but was:<54>
+	at dalvik.system.VMStack.getThreadStackTrace(Native Method)
+	at java.lang.Thread.getStackTrace(Thread.java:1960)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:3)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:1)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:5)
+	at androidx.test.espresso.ViewInteraction.check(ViewInteraction.java:12)
+	at com.example.talktoagent.StitchSecondaryScreenTest.tabsExposeSelectionAndSettingsHasAccessibleTouchTarget(StitchSecondaryScreenTest.java:106)
+	... 32 trimmed
+Caused by: java.lang.AssertionError: expected:<66> but was:<54>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:647)
+	at org.junit.Assert.assertEquals(Assert.java:633)
+	at com.example.talktoagent.StitchSecondaryScreenTest.lambda$tabStyle$0(StitchSecondaryScreenTest.java:118)
+	at com.example.talktoagent.StitchSecondaryScreenTest$$ExternalSyntheticLambda15.check(D8$$SyntheticClass:0)
+	at androidx.test.espresso.ViewInteraction$SingleExecutionViewAssertion.check(ViewInteraction.java:2)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:14)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1

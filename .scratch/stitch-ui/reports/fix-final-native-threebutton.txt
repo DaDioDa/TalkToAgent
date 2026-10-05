@@ -1,0 +1,16 @@
+
+com.example.talktoagent.AuthorizationPersistenceTest:..
+com.example.talktoagent.ConnectionLifecycleUiTest:.
+com.example.talktoagent.ExampleInstrumentedTest:.
+com.example.talktoagent.InvitationScanIntegrationTest:.....
+com.example.talktoagent.LiveVoiceProductionTest:..
+com.example.talktoagent.LiveVoiceScreenTest:....
+com.example.talktoagent.NativeCProductionTest:..
+com.example.talktoagent.NativeCScreenTest:........
+com.example.talktoagent.StitchSecondaryScreenTest:.........
+com.example.talktoagent.StitchVoiceHomeTest:...
+com.example.talktoagent.TraditionalVoiceDeliveryTest:..
+
+Time: 300.346
+
+OK (40 tests)

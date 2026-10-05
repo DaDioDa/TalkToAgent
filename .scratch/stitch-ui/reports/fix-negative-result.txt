@@ -1,0 +1,60 @@
+
+com.example.talktoagent.InvitationScanIntegrationTest:
+Error in validCallbackReturnsExactPayloadOnceEvenWithAnotherQueuedDecode(com.example.talktoagent.InvitationScanIntegrationTest):
+java.lang.AssertionError: expected:<-1> but was:<0>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:647)
+	at org.junit.Assert.assertEquals(Assert.java:633)
+	at com.example.talktoagent.InvitationScanIntegrationTest.validCallbackReturnsExactPayloadOnceEvenWithAnotherQueuedDecode(InvitationScanIntegrationTest.java:88)
+
+Error in mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(com.example.talktoagent.InvitationScanIntegrationTest):
+java.util.concurrent.ExecutionException: java.net.SocketTimeoutException: Poll timed out
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122)
+	at java.util.concurrent.FutureTask.get(FutureTask.java:205)
+	at com.example.talktoagent.InvitationScanIntegrationTest.mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(InvitationScanIntegrationTest.java:154)
+	... 34 trimmed
+Caused by: java.net.SocketTimeoutException: Poll timed out
+	at libcore.io.IoBridge.poll(IoBridge.java:866)
+	at java.net.PlainSocketImpl.socketAccept(PlainSocketImpl.java:196)
+	at java.net.AbstractPlainSocketImpl.accept(AbstractPlainSocketImpl.java:451)
+	at java.net.ServerSocket.implAccept(ServerSocket.java:569)
+	at java.net.ServerSocket.accept(ServerSocket.java:537)
+	at com.example.talktoagent.InvitationScanIntegrationTest.lambda$mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback$0(InvitationScanIntegrationTest.java:142)
+	at com.example.talktoagent.InvitationScanIntegrationTest$$ExternalSyntheticLambda2.call(D8$$SyntheticClass:0)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)
+	at java.lang.Thread.run(Thread.java:1119)
+
+
+Time: 56.413
+There were 2 failures:
+1) validCallbackReturnsExactPayloadOnceEvenWithAnotherQueuedDecode(com.example.talktoagent.InvitationScanIntegrationTest)
+java.lang.AssertionError: expected:<-1> but was:<0>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotEquals(Assert.java:835)
+	at org.junit.Assert.assertEquals(Assert.java:647)
+	at org.junit.Assert.assertEquals(Assert.java:633)
+	at com.example.talktoagent.InvitationScanIntegrationTest.validCallbackReturnsExactPayloadOnceEvenWithAnotherQueuedDecode(InvitationScanIntegrationTest.java:88)
+2) mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(com.example.talktoagent.InvitationScanIntegrationTest)
+java.util.concurrent.ExecutionException: java.net.SocketTimeoutException: Poll timed out
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122)
+	at java.util.concurrent.FutureTask.get(FutureTask.java:205)
+	at com.example.talktoagent.InvitationScanIntegrationTest.mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(InvitationScanIntegrationTest.java:154)
+	... 34 trimmed
+Caused by: java.net.SocketTimeoutException: Poll timed out
+	at libcore.io.IoBridge.poll(IoBridge.java:866)
+	at java.net.PlainSocketImpl.socketAccept(PlainSocketImpl.java:196)
+	at java.net.AbstractPlainSocketImpl.accept(AbstractPlainSocketImpl.java:451)
+	at java.net.ServerSocket.implAccept(ServerSocket.java:569)
+	at java.net.ServerSocket.accept(ServerSocket.java:537)
+	at com.example.talktoagent.InvitationScanIntegrationTest.lambda$mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback$0(InvitationScanIntegrationTest.java:142)
+	at com.example.talktoagent.InvitationScanIntegrationTest$$ExternalSyntheticLambda2.call(D8$$SyntheticClass:0)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)
+	at java.lang.Thread.run(Thread.java:1119)
+
+FAILURES!!!
+Tests run: 2,  Failures: 2

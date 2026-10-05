@@ -334,21 +334,8 @@ public final class NativeCScreen extends LinearLayout {
         tabs.setBackgroundColor(NativeCStyle.LOW);
         Button home = button(tabs, "語音輸入", Action.HOME, !busy);
         Button devices = button(tabs, "裝置連線", Action.CONNECTION, !busy);
-        home.setTextColor(NativeCStyle.GREEN);
-        home.setSelected(true);
-        devices.setTextColor(NativeCStyle.MUTED);
-        devices.setSelected(false);
-        ((MaterialButton) home).setStrokeWidth(0);
-        ((MaterialButton) home).setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
-        ((MaterialButton) home).setIconResource(R.drawable.native_c_mic);
-        ((MaterialButton) devices).setIconResource(R.drawable.native_c_devices);
-        for (Button tab : new Button[]{home, devices}) {
-            ((MaterialButton) tab).setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
-            ((MaterialButton) tab).setIconSize(dp(22));
-            ((MaterialButton) tab).setIconPadding(dp(2));
-            ((MaterialButton) tab).setIconTint(android.content.res.ColorStateList.valueOf(tab == home ? NativeCStyle.GREEN : NativeCStyle.MUTED));
-            tab.setTextSize(10);
-        }
+        styleTab(home, R.drawable.native_c_mic, true, !busy);
+        styleTab(devices, R.drawable.native_c_devices, false, !busy);
         for (Button tab : new Button[]{home, devices}) tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
         addView(tabs, new LayoutParams(LayoutParams.MATCH_PARENT, dp(64)));
         updateLive(livePreview, null, false);
@@ -459,27 +446,31 @@ public final class NativeCScreen extends LinearLayout {
         navigation.setOrientation(VERTICAL);
         navigation.setBackgroundColor(NativeCStyle.LOW);
         navigation.setPadding(dp(16), dp(4), dp(16), dp(4));
-        Button back = button(navigation, "返回主畫面", Action.HOME, true);
+        Button back = button(navigation, panel == Action.CONNECTION ? "語音輸入" : "返回主畫面", Action.HOME, true);
         if (panel == Action.CONNECTION) {
             navigation.setOrientation(HORIZONTAL);
             back.setContentDescription("語音輸入，返回主畫面");
             Button current = button(navigation, "裝置連線", Action.CONNECTION, true);
-            for (Button tab : new Button[]{back, current}) {
-                boolean selected = tab == current;
-                tab.setSelected(selected);
-                tab.setTextColor(selected ? NativeCStyle.GREEN : NativeCStyle.MUTED);
-                MaterialButton material = (MaterialButton) tab;
-                material.setStrokeWidth(0);
-                material.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
-                material.setIconResource(selected ? R.drawable.native_c_devices : R.drawable.native_c_mic);
-                material.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
-                material.setIconTint(android.content.res.ColorStateList.valueOf(selected ? NativeCStyle.GREEN : NativeCStyle.MUTED));
-                material.setIconPadding(dp(2));
-                tab.setTextSize(10);
-                tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
-            }
+            styleTab(back, R.drawable.native_c_mic, false, true);
+            styleTab(current, R.drawable.native_c_devices, true, true);
+            for (Button tab : new Button[]{back, current}) tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
         }
         addView(navigation, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+    }
+    private void styleTab(Button tab, int icon, boolean selected, boolean enabled) {
+        int color = selected ? NativeCStyle.GREEN : NativeCStyle.MUTED;
+        tab.setSelected(selected);
+        tab.setEnabled(enabled);
+        tab.setTextColor(color);
+        tab.setTextSize(10);
+        MaterialButton material = (MaterialButton) tab;
+        material.setStrokeWidth(0);
+        material.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+        material.setIconResource(icon);
+        material.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
+        material.setIconSize(dp(22));
+        material.setIconPadding(dp(2));
+        material.setIconTint(android.content.res.ColorStateList.valueOf(color));
     }
     private LinearLayout addCard(LinearLayout parent, int color) {
         LinearLayout card = NativeCStyle.card(getContext(), color);

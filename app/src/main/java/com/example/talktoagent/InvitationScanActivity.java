@@ -16,6 +16,8 @@ import java.util.Collections;
 /** Private bundled camera scanner: no external intent, deep link, image import/export or URI opening. */
 public final class InvitationScanActivity extends Activity {
     static final String RESULT = "invitation";
+    // External camera-widget boundary; normal execution always uses the bundled ZXing scanner.
+    static java.util.function.Function<android.content.Context, DecoratedBarcodeView> scannerFactory = DecoratedBarcodeView::new;
     private DecoratedBarcodeView scanner;
     private boolean foreground, delivered;
     @Override protected void onCreate(Bundle state) {
@@ -47,7 +49,7 @@ public final class InvitationScanActivity extends Activity {
         instructions.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
         instructions.setText("掃描 Windows 終端的 TalkToAgent 有效邀請。不要分享 QR；不會儲存 QR 圖片。掃描成功不等於應用授權或系統藍牙配對完成。若無法辨識，請在電腦放大終端或重顯示邀請。");
         explanation.addView(instructions);
-        scanner = new DecoratedBarcodeView(themed); scanner.setSaveEnabled(false);
+        scanner = scannerFactory.apply(themed); scanner.setSaveEnabled(false);
         scanner.setContentDescription("連線邀請 QR 相機取景區");
         scanner.setStatusText("將有效連線邀請置於框內");
         scanner.getBarcodeView().setDecoderFactory(new DefaultDecoderFactory(Collections.singletonList(BarcodeFormat.QR_CODE)));

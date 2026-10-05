@@ -21,7 +21,7 @@ public class ConnectionLifecycleUiTest {
             onView(withText("恢復既有應用授權")).check(matches(isDisplayed()));
             onView(withText("掃描 QR 邀請")).check(matches(isDisplayed()));
             onView(withText("Windows Receiver IP")).check(doesNotExist());
-            onView(withText("返回主畫面")).perform(click());
+            onView(withContentDescription("語音輸入，返回主畫面")).perform(click());
             scenario.recreate();
             onView(withContentDescription("開始語音輸入")).check(matches(isDisplayed()));
             onView(withText("取消")).check(matches(isNotEnabled()));

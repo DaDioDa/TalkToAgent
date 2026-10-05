@@ -1,0 +1,17 @@
+
+com.example.talktoagent.InvitationScanIntegrationTest:
+Error in mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(com.example.talktoagent.InvitationScanIntegrationTest):
+java.util.concurrent.TimeoutException
+	at java.util.concurrent.FutureTask.get(FutureTask.java:204)
+	at com.example.talktoagent.InvitationScanIntegrationTest.mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(InvitationScanIntegrationTest.java:154)
+
+
+Time: 14.692
+There was 1 failure:
+1) mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(com.example.talktoagent.InvitationScanIntegrationTest)
+java.util.concurrent.TimeoutException
+	at java.util.concurrent.FutureTask.get(FutureTask.java:204)
+	at com.example.talktoagent.InvitationScanIntegrationTest.mainReceivesOnlyValidResultAndConnectsOnceToControlledLoopback(InvitationScanIntegrationTest.java:154)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1

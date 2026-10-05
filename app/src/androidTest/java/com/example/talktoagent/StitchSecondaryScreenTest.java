@@ -99,12 +99,32 @@ public class StitchSecondaryScreenTest {
                 org.junit.Assert.assertTrue(v.getWidth() >= NativeCStyle.dp(v.getContext(), 48));
                 org.junit.Assert.assertTrue(v.getHeight() >= NativeCStyle.dp(v.getContext(), 48));
             });
-            onView(withText("語音輸入")).check(matches(isSelected()));
+            onView(withText("語音輸入")).check(matches(isSelected())).check(tabStyle(true));
             onView(withText("裝置連線")).check(matches(org.hamcrest.Matchers.not(isSelected()))).check((v, error) -> {
                 if (error != null) throw error; org.junit.Assert.assertEquals(NativeCStyle.MUTED, ((android.widget.TextView) v).getCurrentTextColor());
             }).perform(click());
-            onView(withText("裝置連線")).check(matches(isSelected()));
+            onView(withText("裝置連線")).check(matches(isSelected())).check(tabStyle(true));
+            onView(withContentDescription("語音輸入，返回主畫面"))
+                    .check(matches(withText("語音輸入"))).check(matches(org.hamcrest.Matchers.not(isSelected())))
+                    .check(tabStyle(false)).perform(click());
+            onView(withText("語音輸入")).check(matches(isSelected()));
         }
+    }
+    private static androidx.test.espresso.ViewAssertion tabStyle(boolean selected) {
+        return (view, error) -> {
+            if (error != null) throw error;
+            com.google.android.material.button.MaterialButton tab = (com.google.android.material.button.MaterialButton) view;
+            int color = selected ? NativeCStyle.GREEN : NativeCStyle.MUTED;
+            org.junit.Assert.assertEquals(NativeCStyle.dp(view.getContext(), 22), tab.getIconSize());
+            org.junit.Assert.assertEquals(NativeCStyle.dp(view.getContext(), 2), tab.getIconPadding());
+            org.junit.Assert.assertEquals(com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_TOP, tab.getIconGravity());
+            org.junit.Assert.assertEquals(color, tab.getCurrentTextColor());
+            org.junit.Assert.assertEquals(color, tab.getIconTint().getDefaultColor());
+            org.junit.Assert.assertEquals(0, tab.getStrokeWidth());
+            org.junit.Assert.assertEquals(android.graphics.Color.TRANSPARENT, tab.getBackgroundTintList().getDefaultColor());
+            org.junit.Assert.assertTrue(tab.isEnabled());
+            org.junit.Assert.assertEquals(10f * view.getResources().getDisplayMetrics().scaledDensity, tab.getTextSize(), .1f);
+        };
     }
     @Test public void actualKeyboardKeepsKeySubmitAndBackReachable() throws Exception {
         try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
@@ -113,7 +133,7 @@ public class StitchSecondaryScreenTest {
             });
             onView(withContentDescription("設定")).perform(click());
             onView(withText("Gemini 金鑰")).perform(scrollTo(), click());
-            onView(withHint("新金鑰（不顯示已存金鑰）")).perform(scrollTo(), click(), replaceText("keyboard-test-only"));
+            onView(withHint("新金鑰（不顯示已存金鑰）")).perform(scrollTo(), click());
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             // Wait for the real IME animation, not a fake inset snapshot.
             long deadline = android.os.SystemClock.uptimeMillis() + 5000;
@@ -135,6 +155,12 @@ public class StitchSecondaryScreenTest {
                 android.os.SystemClock.sleep(100);
             } while (stableSamples[0] < 5 && android.os.SystemClock.uptimeMillis() < settleDeadline);
             org.junit.Assert.assertTrue("IME viewport settled", stableSamples[0] >= 5);
+            // The IME has resized the viewport; bring the still-focused field back into view
+            // before input, rather than typing during the click-triggered inset transition.
+            onView(withHint("新金鑰（不顯示已存金鑰）")).perform(scrollTo())
+                    .check(matches(hasFocus())).check(matches(isCompletelyDisplayed()))
+                    .perform(replaceText("keyboard-test-only"))
+                    .check(matches(withText("keyboard-test-only")));
             // Espresso scrollTo deliberately skips scrolling an already 90%-visible control.
             // A real swipe verifies the last 9% can also be reached without dismissing the IME.
             onView(isAssignableFrom(android.widget.ScrollView.class)).perform(swipeUp());

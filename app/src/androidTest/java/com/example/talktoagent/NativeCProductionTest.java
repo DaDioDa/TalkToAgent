@@ -37,7 +37,7 @@ public class NativeCProductionTest {
             onView(withText("通道：藍牙")).perform(scrollTo(), click());
             onView(withText("通道：Wi-Fi")).perform(scrollTo(), click());
             onView(withText("主動中斷連線")).perform(scrollTo(), click());
-            onView(withText("返回主畫面")).perform(click());
+            onView(withContentDescription("語音輸入，返回主畫面")).perform(click());
             onView(withText("取消")).check(matches(isNotEnabled()));
             onView(withContentDescription("開始語音輸入")).check(matches(isNotEnabled()));
         }

@@ -1,0 +1,143 @@
+
+com.example.talktoagent.StitchSecondaryScreenTest:......
+Error in actualKeyboardKeepsKeySubmitAndBackReachable(com.example.talktoagent.StitchSecondaryScreenTest):
+androidx.test.espresso.PerformException: Error performing 'replace text(keyboard-test-only)' on view 'Animations or transitions are enabled on the target device.
+For more info check: https://developer.android.com/training/testing/espresso/setup#set-up-environment
+
+an instance of android.widget.TextView and view.getHint() matching: is "?圈??堆?銝＊蝷箏歇摮??堆?"'.
+	at androidx.test.espresso.PerformException$Builder.build(PerformException.java:1)
+	at androidx.test.espresso.base.PerformExceptionHandler.handleSafely(PerformExceptionHandler.java:8)
+	at androidx.test.espresso.base.PerformExceptionHandler.handleSafely(PerformExceptionHandler.java:9)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:8)
+	at androidx.test.espresso.ViewInteraction.desugaredPerform(ViewInteraction.java:11)
+	at androidx.test.espresso.ViewInteraction.perform(ViewInteraction.java:8)
+	at com.example.talktoagent.StitchSecondaryScreenTest.actualKeyboardKeepsKeySubmitAndBackReachable(StitchSecondaryScreenTest.java:116)
+	... 32 trimmed
+Caused by: java.lang.RuntimeException: Action will not be performed because the target view does not match one or more of the following constraints:
+((view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle) and is assignable from class <class android.widget.EditText>)
+Target view: "TextInputEditText{id=-1, visibility=VISIBLE, width=768, height=225, has-focus=true, has-focusable=true, has-window-focus=true, is-clickable=true, is-enabled=true, is-focused=true, is-focusable=true, is-layout-requested=false, is-selected=false, layout-params=android.widget.FrameLayout$LayoutParams@YYYYYY, tag=null, root-is-layout-requested=false, has-input-connection=true, editor-info=[inputType=0x81 imeOptions=0x6 privateImeOptions=null actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialToolType=0 initialCapsMode=0x0 hintText=?圈??堆?銝＊蝷箏歇摮??堆? label=null packageName=null autofillId=null fieldId=0 fieldName=null extras=Bundle[{androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=false}] hintLocales=null supportedHandwritingGestureTypes=SELECT|SELECT_RANGE|INSERT|DELETE|DELETE_RANGE|REMOVE_SPACE|JOIN_OR_SPLIT supportedHandwritingGesturePreviewTypes=SELECT|SELECT_RANGE|DELETE|DELETE_RANGE isStylusHandwritingEnabled=false writingToolsEnabled=false contentMimeTypes=null ], x=0.0, y=0.0, text=, hint=?圈??堆?銝＊蝷箏歇摮??堆?, input-type=129, ime-target=true, has-links=false}"
+	at androidx.test.espresso.ViewInteraction.doPerform(ViewInteraction.java:20)
+	at androidx.test.espresso.ViewInteraction.-$$Nest$mdoPerform(Unknown Source:0)
+	at androidx.test.espresso.ViewInteraction$1.call(ViewInteraction.java:7)
+	at androidx.test.espresso.ViewInteraction$1.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+..
+com.example.talktoagent.LiveVoiceScreenTest:
+Error in previewAndVolumeUpdateOnlyRetainedRegionsAndSendingIsNotUnsent(com.example.talktoagent.LiveVoiceScreenTest):
+androidx.test.espresso.base.AssertionErrorHandler$AssertionFailedWithCauseError: '(view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)' doesn't match the selected view.
+Expected: (view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)
+     Got: view.getGlobalVisibleRect() returned empty rectangle
+View Details: TextView{id=-1, visibility=VISIBLE, width=468, height=314, has-focus=false, has-focusable=false, has-window-focus=true, is-clickable=false, is-enabled=true, is-focused=false, is-focusable=false, is-layout-requested=false, is-selected=false, layout-params=android.widget.LinearLayout$LayoutParams@YYYYYY, tag=voice-transcript, root-is-layout-requested=false, has-input-connection=false, x=48.0, y=48.0, text=蝑?颲刻???, input-type=0, ime-target=false, has-links=false}
+
+	at dalvik.system.VMStack.getThreadStackTrace(Native Method)
+	at java.lang.Thread.getStackTrace(Thread.java:1960)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:3)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:1)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:5)
+	at androidx.test.espresso.ViewInteraction.check(ViewInteraction.java:12)
+	at com.example.talktoagent.LiveVoiceScreenTest.previewAndVolumeUpdateOnlyRetainedRegionsAndSendingIsNotUnsent(LiveVoiceScreenTest.java:105)
+	... 32 trimmed
+Caused by: junit.framework.AssertionFailedError: '(view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)' doesn't match the selected view.
+Expected: (view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)
+     Got: view.getGlobalVisibleRect() returned empty rectangle
+View Details: TextView{id=-1, visibility=VISIBLE, width=468, height=314, has-focus=false, has-focusable=false, has-window-focus=true, is-clickable=false, is-enabled=true, is-focused=false, is-focusable=false, is-layout-requested=false, is-selected=false, layout-params=android.widget.LinearLayout$LayoutParams@YYYYYY, tag=voice-transcript, root-is-layout-requested=false, has-input-connection=false, x=48.0, y=48.0, text=蝑?颲刻???, input-type=0, ime-target=false, has-links=false}
+
+	at androidx.test.espresso.matcher.ViewMatchers.assertThat(ViewMatchers.java:16)
+	at androidx.test.espresso.assertion.ViewAssertions$MatchesViewAssertion.check(ViewAssertions.java:7)
+	at androidx.test.espresso.ViewInteraction$SingleExecutionViewAssertion.check(ViewInteraction.java:2)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:14)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+...
+
+Time: 111.698
+There were 2 failures:
+1) actualKeyboardKeepsKeySubmitAndBackReachable(com.example.talktoagent.StitchSecondaryScreenTest)
+androidx.test.espresso.PerformException: Error performing 'replace text(keyboard-test-only)' on view 'Animations or transitions are enabled on the target device.
+For more info check: https://developer.android.com/training/testing/espresso/setup#set-up-environment
+
+an instance of android.widget.TextView and view.getHint() matching: is "?圈??堆?銝＊蝷箏歇摮??堆?"'.
+	at androidx.test.espresso.PerformException$Builder.build(PerformException.java:1)
+	at androidx.test.espresso.base.PerformExceptionHandler.handleSafely(PerformExceptionHandler.java:8)
+	at androidx.test.espresso.base.PerformExceptionHandler.handleSafely(PerformExceptionHandler.java:9)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:8)
+	at androidx.test.espresso.ViewInteraction.desugaredPerform(ViewInteraction.java:11)
+	at androidx.test.espresso.ViewInteraction.perform(ViewInteraction.java:8)
+	at com.example.talktoagent.StitchSecondaryScreenTest.actualKeyboardKeepsKeySubmitAndBackReachable(StitchSecondaryScreenTest.java:116)
+	... 32 trimmed
+Caused by: java.lang.RuntimeException: Action will not be performed because the target view does not match one or more of the following constraints:
+((view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle) and is assignable from class <class android.widget.EditText>)
+Target view: "TextInputEditText{id=-1, visibility=VISIBLE, width=768, height=225, has-focus=true, has-focusable=true, has-window-focus=true, is-clickable=true, is-enabled=true, is-focused=true, is-focusable=true, is-layout-requested=false, is-selected=false, layout-params=android.widget.FrameLayout$LayoutParams@YYYYYY, tag=null, root-is-layout-requested=false, has-input-connection=true, editor-info=[inputType=0x81 imeOptions=0x6 privateImeOptions=null actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialToolType=0 initialCapsMode=0x0 hintText=?圈??堆?銝＊蝷箏歇摮??堆? label=null packageName=null autofillId=null fieldId=0 fieldName=null extras=Bundle[{androidx.core.view.inputmethod.EditorInfoCompat.STYLUS_HANDWRITING_ENABLED=false}] hintLocales=null supportedHandwritingGestureTypes=SELECT|SELECT_RANGE|INSERT|DELETE|DELETE_RANGE|REMOVE_SPACE|JOIN_OR_SPLIT supportedHandwritingGesturePreviewTypes=SELECT|SELECT_RANGE|DELETE|DELETE_RANGE isStylusHandwritingEnabled=false writingToolsEnabled=false contentMimeTypes=null ], x=0.0, y=0.0, text=, hint=?圈??堆?銝＊蝷箏歇摮??堆?, input-type=129, ime-target=true, has-links=false}"
+	at androidx.test.espresso.ViewInteraction.doPerform(ViewInteraction.java:20)
+	at androidx.test.espresso.ViewInteraction.-$$Nest$mdoPerform(Unknown Source:0)
+	at androidx.test.espresso.ViewInteraction$1.call(ViewInteraction.java:7)
+	at androidx.test.espresso.ViewInteraction$1.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+2) previewAndVolumeUpdateOnlyRetainedRegionsAndSendingIsNotUnsent(com.example.talktoagent.LiveVoiceScreenTest)
+androidx.test.espresso.base.AssertionErrorHandler$AssertionFailedWithCauseError: '(view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)' doesn't match the selected view.
+Expected: (view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)
+     Got: view.getGlobalVisibleRect() returned empty rectangle
+View Details: TextView{id=-1, visibility=VISIBLE, width=468, height=314, has-focus=false, has-focusable=false, has-window-focus=true, is-clickable=false, is-enabled=true, is-focused=false, is-focusable=false, is-layout-requested=false, is-selected=false, layout-params=android.widget.LinearLayout$LayoutParams@YYYYYY, tag=voice-transcript, root-is-layout-requested=false, has-input-connection=false, x=48.0, y=48.0, text=蝑?颲刻???, input-type=0, ime-target=false, has-links=false}
+
+	at dalvik.system.VMStack.getThreadStackTrace(Native Method)
+	at java.lang.Thread.getStackTrace(Thread.java:1960)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:3)
+	at androidx.test.espresso.base.AssertionErrorHandler.handleSafely(AssertionErrorHandler.java:1)
+	at androidx.test.espresso.base.DefaultFailureHandler$TypedFailureHandler.handle(DefaultFailureHandler.java:4)
+	at androidx.test.espresso.base.DefaultFailureHandler.handle(DefaultFailureHandler.java:5)
+	at androidx.test.espresso.ViewInteraction.waitForAndHandleInteractionResults(ViewInteraction.java:5)
+	at androidx.test.espresso.ViewInteraction.check(ViewInteraction.java:12)
+	at com.example.talktoagent.LiveVoiceScreenTest.previewAndVolumeUpdateOnlyRetainedRegionsAndSendingIsNotUnsent(LiveVoiceScreenTest.java:105)
+	... 32 trimmed
+Caused by: junit.framework.AssertionFailedError: '(view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)' doesn't match the selected view.
+Expected: (view has effective visibility <VISIBLE> and view.getGlobalVisibleRect() to return non-empty rectangle)
+     Got: view.getGlobalVisibleRect() returned empty rectangle
+View Details: TextView{id=-1, visibility=VISIBLE, width=468, height=314, has-focus=false, has-focusable=false, has-window-focus=true, is-clickable=false, is-enabled=true, is-focused=false, is-focusable=false, is-layout-requested=false, is-selected=false, layout-params=android.widget.LinearLayout$LayoutParams@YYYYYY, tag=voice-transcript, root-is-layout-requested=false, has-input-connection=false, x=48.0, y=48.0, text=蝑?颲刻???, input-type=0, ime-target=false, has-links=false}
+
+	at androidx.test.espresso.matcher.ViewMatchers.assertThat(ViewMatchers.java:16)
+	at androidx.test.espresso.assertion.ViewAssertions$MatchesViewAssertion.check(ViewAssertions.java:7)
+	at androidx.test.espresso.ViewInteraction$SingleExecutionViewAssertion.check(ViewInteraction.java:2)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:14)
+	at androidx.test.espresso.ViewInteraction$2.call(ViewInteraction.java:1)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at android.os.Handler.handleCallback(Handler.java:995)
+	at android.os.Handler.dispatchMessage(Handler.java:103)
+	at android.os.Looper.loopOnce(Looper.java:248)
+	at android.os.Looper.loop(Looper.java:338)
+	at android.app.ActivityThread.main(ActivityThread.java:9067)
+	at java.lang.reflect.Method.invoke(Native Method)
+	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+
+FAILURES!!!
+Tests run: 14,  Failures: 2

@@ -102,7 +102,7 @@ public class LiveVoiceScreenTest {
         NativeCScreen[] screen = new NativeCScreen[1];
         try (ActivityScenario<NativeCPreviewActivity> scenario = ActivityScenario.launch(NativeCPreviewActivity.class)) {
             scenario.onActivity(a -> { screen[0] = new NativeCScreen(a, e -> {}); a.setContentView(screen[0]); screen[0].render(state(NativeCScreen.Phase.RECORDING)); });
-            onView(withText("等待辨識文字")).check(matches(isDisplayed()));
+            onView(withText("等待辨識文字")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             capture("ticket02-no-fragment");
             scenario.onActivity(a -> {
                 View mic = screen[0].findViewWithTag(NativeCScreen.Action.FINISH);
@@ -116,23 +116,23 @@ public class LiveVoiceScreenTest {
                 assertEquals(View.ACCESSIBILITY_LIVE_REGION_NONE, words.getAccessibilityLiveRegion());
                 assertEquals("修訂後的服務預覽", ((TextView) words).getText().toString());
             });
-            onView(withText("辨識預覽 · 尚未送出")).check(matches(isDisplayed()));
+            onView(withText("辨識預覽 · 尚未送出")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             scenario.onActivity(a -> { android.widget.ScrollView scroll = (android.widget.ScrollView) screen[0].getChildAt(1); scroll.scrollTo(0, scroll.getChildAt(0).getHeight()); assertTrue(scroll.getScrollY() > 0); });
             onView(withTagValue(org.hamcrest.Matchers.is("voice-waveform"))).check(matches(isCompletelyDisplayed()));
             capture("ticket02-preview-waveform");
             scenario.onActivity(a -> screen[0].render(state(NativeCScreen.Phase.FINALIZING)));
-            onView(withText("辨識預覽 · 未定稿、尚未送出")).check(matches(isDisplayed()));
+            onView(withText("辨識預覽 · 未定稿、尚未送出")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             scenario.onActivity(a -> { android.widget.ScrollView scroll = (android.widget.ScrollView) screen[0].getChildAt(1); scroll.scrollTo(0, scroll.getChildAt(0).getHeight()); });
             onView(withTagValue(org.hamcrest.Matchers.is("voice-waveform"))).check(matches(isDisplayed()));
             capture("ticket02-waiting");
             scenario.onActivity(a -> screen[0].render(state(NativeCScreen.Phase.SENDING)));
-            onView(withText("轉錄定稿 · 傳送中")).check(matches(isDisplayed()));
+            onView(withText("轉錄定稿 · 傳送中")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             scenario.onActivity(a -> screen[0].render(state(NativeCScreen.Phase.CANCELLED)));
-            onView(withText("先前定稿")).check(matches(isDisplayed()));
+            onView(withText("先前定稿")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             capture("ticket02-cancelled");
             scenario.onActivity(a -> screen[0].render(new NativeCScreen.State(NativeCScreen.Phase.COMPLETED, true,
                     "測試電腦", 0, "本次有效轉錄定稿", Collections.emptyList())));
-            onView(withText("本次有效轉錄定稿")).check(matches(isDisplayed()));
+            onView(withText("本次有效轉錄定稿")).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()));
             capture("ticket02-final-result");
         }
     }
