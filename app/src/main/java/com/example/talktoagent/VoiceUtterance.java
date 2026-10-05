@@ -13,6 +13,33 @@ final class VoiceUtterance {
     private Consumer<Effect> effects;
     private long generation, deadline, preparationDeadline, finalizationDeadline;
     private boolean warned, manualOperation;
+    private String preview = "";
+
+    private final float[] volumeTrend = new float[32];
+    private boolean hasVolume;
+    private long volumeAt;
+    String preview() { return preview; }
+    boolean hasVolume() {
+        return phase == Phase.RECORDING && hasVolume && clock.getAsLong() - volumeAt < 500;
+    }
+    float[] volumeTrend() { return hasVolume() ? volumeTrend.clone() : new float[32]; }
+    boolean volume(long session, float level) {
+        if (session != generation || phase != Phase.RECORDING || !Float.isFinite(level) || level < 0 || level > 1) return false;
+        if (!hasVolume()) java.util.Arrays.fill(volumeTrend, 0f);
+        System.arraycopy(volumeTrend, 1, volumeTrend, 0, volumeTrend.length - 1);
+        volumeTrend[31] = level;
+        hasVolume = true;
+        volumeAt = clock.getAsLong();
+        return true;
+    }
+    private void clearVolume() { hasVolume = false; java.util.Arrays.fill(volumeTrend, 0f); }
+    /** Gemini interimInputTranscription is a revisable hypothesis, not an append-only delta.
+     * Freeze it after finish, matching the transcriber's !released callback contract. */
+    boolean interim(long session, String text) {
+        if (session != generation || phase != Phase.RECORDING || text == null) return false;
+        preview = text;
+        return true;
+    }
 
     VoiceUtterance(Consumer<String> delivery, Consumer<String> status,
                    Function<String, String> finalizeText, java.util.function.LongSupplier clock,
@@ -24,6 +51,8 @@ final class VoiceUtterance {
     long start(boolean ready) {
         if (!ready || busy()) return -1;
         generation++;
+        preview = "";
+        clearVolume();
         deadline = clock.getAsLong() + 45000;
         preparationDeadline = clock.getAsLong() + 10000;
         warned = false;
@@ -93,6 +122,8 @@ final class VoiceUtterance {
         if (!active()) return;
         generation++;
         phase = Phase.CANCELLED;
+        preview = "";
+        clearVolume();
         effects.accept(Effect.CLOSE);
         status.accept("已取消，未傳送");
     }
@@ -137,6 +168,7 @@ final class VoiceUtterance {
     boolean release() {
         if (phase != Phase.RECORDING) return false;
         phase = Phase.WAITING;
+        clearVolume();
         if (clock != null) finalizationDeadline = clock.getAsLong() + 8000;
         status.accept("等待轉錄定稿");
         return true;
@@ -149,6 +181,7 @@ final class VoiceUtterance {
     void finalText(String text) {
         if (phase != Phase.WAITING) return;
         phase = effects == null ? Phase.DONE : Phase.FAILED;
+        preview = "";
         if (!ManualTextProtocol.isValidFinalText(text)) {
             status.accept("定稿為空或超限，未傳送");
             return;
@@ -173,6 +206,8 @@ final class VoiceUtterance {
 
     void fail(String reason) {
         if (active()) {
+            preview = "";
+            clearVolume();
             phase = effects == null ? Phase.DONE : Phase.FAILED;
             if (effects != null) effects.accept(Effect.CLOSE);
             status.accept(reason);

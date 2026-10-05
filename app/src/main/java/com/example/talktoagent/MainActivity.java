@@ -116,7 +116,9 @@ public final class MainActivity extends Activity {
     };
     private String knownFailure;
     private GeminiKeyStore keyStore;
-    private GeminiLiveTranscriber recognition;
+    private VoiceRecognition recognition;
+    // Only the external recognizer is replaceable; production and native tests share all handlers.
+    java.util.function.BiFunction<String, GeminiLiveTranscriber.Listener, VoiceRecognition> recognitionFactory = GeminiLiveTranscriber::new;
     private VoiceUtterance utterance;
     private FinalTextTransport transport;
     private boolean receiverAuthenticated;
@@ -166,6 +168,7 @@ public final class MainActivity extends Activity {
             if (utterance != null) {
                 utterance.tick();
                 if (utterance.active() && utterance.remainingSeconds() != displayedRemaining) refreshReadiness();
+                if (utterance.phase() == VoiceUtterance.Phase.RECORDING) updateLiveVoice();
             }
             main.postDelayed(this, 200);
         }
@@ -205,6 +208,11 @@ public final class MainActivity extends Activity {
             panelOpen = false;
             screen.render(snapshot);
         } else screen.update(snapshot);
+        updateLiveVoice();
+    }
+    private void updateLiveVoice() {
+        if (screen != null && utterance != null && activityVisible && !panelOpen)
+            screen.updateLive(utterance.preview(), utterance.volumeTrend(), utterance.hasVolume());
     }
 
     private void handleAction(NativeCScreen.Event event) {
@@ -595,14 +603,16 @@ public final class MainActivity extends Activity {
                 utterance.busy(), knownFailure).ready());
         if (session < 0) return;
         knownFailure = null;
-        recognition = new GeminiLiveTranscriber(key, new GeminiLiveTranscriber.Listener() {
+        recognition = recognitionFactory.apply(key, new GeminiLiveTranscriber.Listener() {
             @Override public void onCaptureStarted() { utterance.microphoneStarted(session); }
             @Override public void onStage(String stage) {
                 if (session == utterance.session() && utterance.active()) setVoiceStatus(stage);
             }
             @Override public void onInterim(String text) {
-                if (session == utterance.session() && utterance.phase() == VoiceUtterance.Phase.RECORDING)
-                    setVoiceStatus("正在辨識；暫定片段不傳送");
+                if (activityVisible && utterance.interim(session, text)) updateLiveVoice();
+            }
+            @Override public void onVolume(float level) {
+                if (activityVisible && utterance.volume(session, level)) updateLiveVoice();
             }
             @Override public void onFinal(String text) {
                 if (session != utterance.session() || utterance.phase() != VoiceUtterance.Phase.WAITING) return;

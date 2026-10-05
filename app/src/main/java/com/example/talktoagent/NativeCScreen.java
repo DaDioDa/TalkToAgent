@@ -83,7 +83,44 @@ public final class NativeCScreen extends LinearLayout {
     private State state;
     private Action panel;
     private TextView transcript;
+    private TextView transcriptTitle;
+    private TextView volumeStatus;
+    private String livePreview = "";
     private LinearLayout waveform;
+    /** UI-thread local update. No page replacement, layout animation or accessibility announcements. */
+    public void updateLive(String preview, float[] trend, boolean available) {
+        if (panel != null || transcript == null || waveform == null || state == null) return;
+        boolean capturing = state.phase == Phase.RECORDING;
+        boolean previewPhase = capturing || state.phase == Phase.FINALIZING;
+        livePreview = previewPhase ? Objects.requireNonNull(preview) : "";
+        String words = previewPhase && !livePreview.isEmpty() ? livePreview
+                : isBusy(state.phase) ? waitingText(state.phase)
+                : state.latestFinalText.isEmpty() ? "尚無定稿" : state.latestFinalText;
+        if (!transcript.getText().toString().equals(words)) transcript.setText(words);
+        String heading = transcriptHeading(state.phase);
+        if (!transcriptTitle.getText().toString().equals(heading)) transcriptTitle.setText(heading);
+        int textColor = previewPhase ? NativeCStyle.MUTED : NativeCStyle.TEXT;
+        if (transcript.getCurrentTextColor() != textColor) transcript.setTextColor(textColor);
+        boolean measured = capturing && available && trend != null && trend.length == 32;
+        String volumeLabel = capturing ? measured ? "真實音量趨勢" : "等待音量 · 靜止" : "未收音 · 靜止";
+        if (!volumeStatus.getText().toString().equals(volumeLabel)) volumeStatus.setText(volumeLabel);
+        for (int i = 0; i < waveform.getChildCount(); i++) {
+            float level = measured && Float.isFinite(trend[i]) ? Math.max(0f, Math.min(1f, trend[i])) : 0f;
+            View bar = waveform.getChildAt(i);
+            // Fixed bounds: amplitudes invalidate only the bars, never relayout the dock or scroll.
+            bar.setScaleY(.125f + .875f * (float) Math.sqrt(level));
+            bar.setAlpha(measured ? .45f + .55f * level : .35f);
+        }
+    }
+    private String transcriptHeading(Phase phase) {
+        switch (phase) {
+            case PREPARING: return "本次語音 · 準備中、尚未送出";
+            case RECORDING: return "辨識預覽 · 尚未送出";
+            case FINALIZING: return "辨識預覽 · 未定稿、尚未送出";
+            case SENDING: return "轉錄定稿 · 傳送中";
+            default: return "最近一段轉錄定稿";
+        }
+    }
     private android.widget.FrameLayout micHalo;
     private MaterialButton micButton;
     private TextView actionHint;
@@ -123,6 +160,7 @@ public final class NativeCScreen extends LinearLayout {
         deadlineWarning = null;
         panel = null;
         this.state = Objects.requireNonNull(state);
+        if (state.phase != Phase.RECORDING && state.phase != Phase.FINALIZING) livePreview = "";
         removeAllViews();
         boolean busy = isBusy(state.phase);
         LinearLayout header = new LinearLayout(getContext());
@@ -185,8 +223,10 @@ public final class NativeCScreen extends LinearLayout {
         LinearLayout words = addCard(info, NativeCStyle.CARD);
         LinearLayout wordHeading = new LinearLayout(getContext());
         wordHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        words.addView(wordHeading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
-        TextView wordTitle = homeLine(wordHeading, busy ? "本次語音 · 尚未送出" : "最近一段轉錄定稿", 12);
+        wordHeading.setMinimumHeight(dp(48));
+        words.addView(wordHeading, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        TextView wordTitle = homeLine(wordHeading, transcriptHeading(state.phase), 12);
+        transcriptTitle = wordTitle;
         wordTitle.setLayoutParams(new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
         Button latest = button(wordHeading, "最近定稿", Action.LATEST, !busy);
         latest.setTextSize(12);
@@ -196,6 +236,8 @@ public final class NativeCScreen extends LinearLayout {
         transcript = homeLine(inset, busy ? waitingText(state.phase)
                 : state.latestFinalText.isEmpty() ? "尚無定稿" : state.latestFinalText, 14);
         transcript.setTag("voice-transcript");
+        transcript.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_NONE);
+        transcript.setMinLines(state.phase == Phase.RECORDING || state.phase == Phase.FINALIZING ? 3 : 1);
         transcript.setMaxLines(3);
         transcript.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout monitor = addCard(info, NativeCStyle.LOWEST);
@@ -203,7 +245,9 @@ public final class NativeCScreen extends LinearLayout {
         monitor.addView(monitorHeading, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         TextView volumeTitle = homeLine(monitorHeading, "輸入音量", 10);
         volumeTitle.setLayoutParams(new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
-        homeLine(monitorHeading, "音量尚未接入 · 靜止示意", 10).setTextColor(NativeCStyle.MUTED);
+        volumeStatus = homeLine(monitorHeading, "未收音 · 靜止", 10);
+        volumeStatus.setTextColor(NativeCStyle.MUTED);
+        volumeStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_NONE);
         waveform = new LinearLayout(getContext());
         waveform.setTag("voice-waveform");
         waveform.setGravity(android.view.Gravity.CENTER);
@@ -213,7 +257,7 @@ public final class NativeCScreen extends LinearLayout {
             View bar = new View(getContext());
             bar.setBackground(NativeCStyle.rounded(getContext(), i % 4 == 0 ? NativeCStyle.CYAN : NativeCStyle.GREEN, 3));
             bar.setAlpha(.35f);
-            LayoutParams bounds = new LayoutParams(dp(3), dp(4));
+            LayoutParams bounds = new LayoutParams(dp(3), dp(32));
             bounds.setMargins(dp(1), 0, dp(1), 0);
             waveform.addView(bar, bounds);
         }
@@ -283,6 +327,7 @@ public final class NativeCScreen extends LinearLayout {
         }
         for (Button tab : new Button[]{home, devices}) tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
         addView(tabs, new LayoutParams(LayoutParams.MATCH_PARENT, dp(64)));
+        updateLive(livePreview, null, false);
         requestFocus();
     }
     private String phaseText(Phase phase) {

@@ -18,11 +18,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A single press-only Gemini 3.5 Transcribe Live SMART session. Never forwards audio to Receiver. */
-final class GeminiLiveTranscriber {
+final class GeminiLiveTranscriber implements VoiceRecognition {
     interface Listener {
         default void onCaptureStarted() { }
         void onStage(String stage);
         void onInterim(String text);
+        default void onVolume(float level) { }
         void onFinal(String text);
         void onError(String reason);
     }
@@ -158,6 +159,11 @@ final class GeminiLiveTranscriber {
                         int count = audio.read(chunk, 0, chunk.length);
                         if (!recording.get() || finished) break;
                         if (count <= 0) { main.post(() -> finishError("麥克風讀取失敗，未傳送")); break; }
+                        // Read the same nominal 100ms chunk without modifying upstream audio.
+                        float level = PcmVolume.level(chunk, count);
+                        main.post(() -> {
+                            if (!finished && !released && recording.get()) listener.onVolume(level);
+                        });
                         byte[] exact = java.util.Arrays.copyOf(chunk, count);
                         String payload = Base64.encodeToString(exact, Base64.NO_WRAP);
                         if (!socket.send("{\"realtimeInput\":{\"audio\":{\"data\":\"" + payload
@@ -192,7 +198,7 @@ final class GeminiLiveTranscriber {
         }
     }
 
-    void release() {
+    @Override public void release() {
         if (finished || released) return;
         released = true;
         transcript.release(SystemClock.uptimeMillis());
@@ -205,7 +211,7 @@ final class GeminiLiveTranscriber {
         main.postDelayed(timeout, 8000);
     }
 
-    void finalizeAtDeadline() { if (!finished && released) timeout.run(); }
+    @Override public void finalizeAtDeadline() { if (!finished && released) timeout.run(); }
 
     private void scheduleSettledDelivery() {
         main.removeCallbacks(deliverSettled);
@@ -232,7 +238,7 @@ final class GeminiLiveTranscriber {
         close();
     }
 
-    void close() {
+    @Override public void close() {
         finished = true;
         recording.set(false);
         main.removeCallbacks(timeout);

@@ -81,7 +81,7 @@ public class StitchVoiceHomeTest {
             });
             onView(withText("最近的真實定稿")).check(matches(isDisplayed()));
             onView(withText("裝置連線")).check(matches(isDisplayed()));
-            onView(withText("音量尚未接入 · 靜止示意")).check(matches(isDisplayed()));
+            onView(withText("未收音 · 靜止")).check(matches(isDisplayed()));
             onView(withText("最近定稿")).perform(click());
             onView(withText("複製定稿")).perform(click());
             assertEquals(NativeCScreen.Action.LATEST, events.get(0).action);
