@@ -199,7 +199,8 @@ public final class MainActivity extends Activity {
         displayedRemaining = utterance.remainingSeconds();
         String connectionSummary = targetMessage + " · " + (connectingAttempt ? "驗證中" : receiverAuthenticated ? "已連線" : "未驗證");
         NativeCScreen.State snapshot = new NativeCScreen.State(phase, ready, connectionSummary,
-                displayedRemaining, latest, blockers, receiverAuthenticated && !utterance.busy() && !bluetoothPending && !connectingAttempt, voiceMessage);
+                displayedRemaining, latest, blockers, receiverAuthenticated && !utterance.busy() && !bluetoothPending && !connectingAttempt,
+                voiceMessage, receiverAuthenticated, bluetoothSelected() ? "藍牙" : "Wi-Fi");
         if (!panelOpen || utterance.busy()) {
             panelOpen = false;
             screen.render(snapshot);

@@ -1,6 +1,6 @@
 <resources>
     <!-- Scoped to NativeCScreen and its production/preview hosts; scanner/service themes unchanged. -->
-    <style name="Theme.TalkToAgent.NativeC" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.TalkToAgent.NativeC" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/native_c_primary</item>
         <item name="colorOnPrimary">@color/native_c_on_primary</item>
         <item name="colorPrimaryContainer">@color/native_c_container</item>
@@ -36,12 +36,12 @@
     <style name="Widget.TalkToAgent.NativeC.Outlined" parent="Widget.Material3.Button.OutlinedButton">
         <item name="android:textColor">@color/native_c_secondary_text</item>
     </style>
-    <color name="native_c_primary">#49647C</color>
-    <color name="native_c_on_primary">#FFFFFF</color>
-    <color name="native_c_container">#DCE7EF</color>
-    <color name="native_c_on_container">#243B4F</color>
-    <color name="native_c_surface">#F8FAFC</color>
-    <color name="native_c_on_surface">#1A1C1E</color>
-    <color name="native_c_secondary">#535F69</color>
-    <bool name="native_c_light_bars">true</bool>
+    <color name="native_c_primary">#50FFAF</color>
+    <color name="native_c_on_primary">#003921</color>
+    <color name="native_c_container">#00F5A0</color>
+    <color name="native_c_on_container">#003921</color>
+    <color name="native_c_surface">#0C1324</color>
+    <color name="native_c_on_surface">#DCE1FB</color>
+    <color name="native_c_secondary">#B9CBBD</color>
+    <bool name="native_c_light_bars">false</bool>
 </resources>

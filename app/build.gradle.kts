@@ -49,7 +49,11 @@ val authorizationTestAssets = tasks.register<Sync>("authorizationTestAssets") {
     into(layout.buildDirectory.dir("generated/authorization-test-assets"))
 }
 tasks.configureEach {
-    if (name.startsWith("merge") && name.endsWith("AndroidTestAssets")) dependsOn(authorizationTestAssets)
+    if ((name.startsWith("merge") && name.endsWith("AndroidTestAssets"))
+        || (name.startsWith("lintAnalyze") && name.endsWith("AndroidTest"))
+        || (name.startsWith("generate") && name.endsWith("AndroidTestLintModel"))) {
+        dependsOn(authorizationTestAssets)
+    }
 }
 tasks.withType<Test>().configureEach {
     inputs.file(rootProject.file("docs/authorization-vectors.json"))

@@ -46,6 +46,8 @@ public final class NativeCScreen extends LinearLayout {
         public final boolean manualReady;
         public final String operationStatus;
         public final String computer;
+        public final boolean connected;
+        public final String channel;
         public final int remainingSeconds;
         public final String latestFinalText;
         public final List<Blocker> blockers;
@@ -59,6 +61,14 @@ public final class NativeCScreen extends LinearLayout {
         }
         public State(Phase phase, boolean ready, String computer, int remainingSeconds,
                      String latestFinalText, List<Blocker> blockers, boolean manualReady, String operationStatus) {
+            this(phase, ready, computer, remainingSeconds, latestFinalText, blockers, manualReady,
+                    operationStatus, manualReady, "");
+        }
+        public State(Phase phase, boolean ready, String computer, int remainingSeconds,
+                     String latestFinalText, List<Blocker> blockers, boolean manualReady, String operationStatus,
+                     boolean connected, String channel) {
+            this.connected = connected;
+            this.channel = Objects.requireNonNull(channel);
             this.operationStatus = Objects.requireNonNull(operationStatus);
             this.manualReady = manualReady;
             this.phase = Objects.requireNonNull(phase);
@@ -72,6 +82,15 @@ public final class NativeCScreen extends LinearLayout {
     private final Actions actions;
     private State state;
     private Action panel;
+    private TextView transcript;
+    private LinearLayout waveform;
+    private android.widget.FrameLayout micHalo;
+    private MaterialButton micButton;
+    private TextView actionHint;
+    private TextView brandSubtitle;
+    private Button cancelButton;
+    private TextView remainingDeadline;
+    private TextView deadlineWarning;
     /** Update live readiness without clearing a typed key or diagnostic draft. */
     public void update(State state) {
         this.state = Objects.requireNonNull(state);
@@ -85,7 +104,8 @@ public final class NativeCScreen extends LinearLayout {
         super(new ContextThemeWrapper(context, R.style.Theme_TalkToAgent_NativeC));
         this.actions = Objects.requireNonNull(actions);
         setOrientation(VERTICAL);
-        setBackgroundColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface));
+        setFocusableInTouchMode(true);
+        setBackgroundColor(NativeCStyle.SURFACE);
         setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets safe = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
             setPadding(safe.left, safe.top, safe.right, safe.bottom);
@@ -93,53 +113,177 @@ public final class NativeCScreen extends LinearLayout {
         });
     }
     public void render(State state) {
+        Objects.requireNonNull(state);
+        if (panel == null && remainingDeadline != null && sameTimerPresentation(state)) {
+            this.state = state;
+            updateDeadline();
+            return;
+        }
+        remainingDeadline = null;
+        deadlineWarning = null;
         panel = null;
         this.state = Objects.requireNonNull(state);
         removeAllViews();
-        boolean busy = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING
-                || state.phase == Phase.FINALIZING || state.phase == Phase.SENDING;
-        // Stable allocations: long text and font scaling scroll only the status area,
-        // never displacing the large action surface or the full-width cancel target.
+        boolean busy = isBusy(state.phase);
+        LinearLayout header = new LinearLayout(getContext());
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(16), 0, dp(16), 0);
+        android.widget.ImageView logo = new android.widget.ImageView(getContext());
+        logo.setImageResource(R.drawable.native_c_mic);
+        logo.setImageTintList(android.content.res.ColorStateList.valueOf(NativeCStyle.GREEN));
+        logo.setBackground(NativeCStyle.rounded(getContext(), NativeCStyle.LOWEST, 20));
+        logo.setPadding(dp(4), dp(4), dp(4), dp(4));
+        logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LayoutParams logoBounds = new LayoutParams(dp(28), dp(28));
+        logoBounds.rightMargin = dp(8);
+        header.addView(logo, logoBounds);
+        LinearLayout brand = new LinearLayout(getContext());
+        brand.setOrientation(VERTICAL);
+        TextView title = homeLine(brand, "TalkToAgent", 20);
+        title.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        title.setTextColor(0xFFCDFFDE);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        brandSubtitle = homeLine(brand, "VOICE INPUT", 10);
+        brandSubtitle.setTypeface(android.graphics.Typeface.MONOSPACE);
+        header.addView(brand, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
+        TextView connected = homeLine(header, state.connected ? "● 已連線" : "未連線", 12);
+        connected.setTextColor(state.connected ? NativeCStyle.GREEN : NativeCStyle.MUTED);
+        connected.setContentDescription("電腦連線：" + (state.connected ? "已連線" : "未連線"));
+        Button settings = button(header, "設定", Action.SETTINGS, !busy);
+        settings.setLayoutParams(new LayoutParams(dp(64), LayoutParams.MATCH_PARENT));
+        addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(64)));
+
+        // Only information scrolls. Primary, cancel and tabs stay above the safe area.
         ScrollView status = new ScrollView(getContext());
-        status.setFillViewport(true);
         LinearLayout info = new LinearLayout(getContext());
         info.setOrientation(VERTICAL);
-        info.setPadding(dp(16), 0, dp(16), 0);
+        info.setPadding(dp(16), 0, dp(16), dp(8));
         status.addView(info);
-        addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, 0, .45f));
-        LinearLayout entries = new LinearLayout(getContext());
-        info.addView(entries, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
-        for (Action entry : new Action[]{Action.CONNECTION, Action.SETTINGS, Action.LATEST}) {
-            Button secondary = button(entries, entry == Action.CONNECTION ? "連線管理" : entry == Action.SETTINGS ? "設定" : "最近定稿", entry, !busy);
-            secondary.setMaxLines(1);
-            secondary.setLayoutParams(new LayoutParams(0, dp(48), entry == Action.CONNECTION ? 1.3f : 1));
-        }
-        homeLine(info, state.computer, 24, 14);
-        homeLine(info, state.ready ? "輸入就緒" : "輸入尚未就緒", 24, 14);
-        homeLine(info, phaseText(state.phase), 48, 22);
+        addView(status, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1));
+        LinearLayout system = addCard(info, NativeCStyle.LOW);
+        TextView readiness = homeLine(system, busy ? "語音處理中" : state.ready ? "輸入就緒" : "輸入尚未就緒", 12);
+        readiness.setTextColor(state.ready ? NativeCStyle.GREEN : NativeCStyle.MUTED);
+        readiness.setBackground(NativeCStyle.rounded(getContext(), state.ready ? 0x2600F5A0 : NativeCStyle.HIGH, 20));
+        readiness.setPadding(dp(12), dp(4), dp(12), dp(4));
+        TextView computer = homeLine(system, state.computer, 20);
+        computer.setMaxLines(2);
+        computer.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        if (state.phase != Phase.READY && state.phase != Phase.UNAVAILABLE)
+            homeLine(system, phaseText(state.phase), 14);
+        if (!state.channel.isEmpty()) homeLine(system, "連線通道：" + state.channel, 12);
         boolean timed = state.phase == Phase.PREPARING || state.phase == Phase.RECORDING;
-        homeLine(info, timed ? "剩餘期限 " + state.remainingSeconds + " 秒（包含準備時間）" : "", 24, 14);
-        homeLine(info, timed && state.remainingSeconds <= 5 ? "即將自動結束並等待定稿" : "", 24, 14);
-        if (!state.operationStatus.isEmpty()) text(info, state.operationStatus);
-        if (!state.blockers.isEmpty()) {
-            Blocker blocker = state.blockers.get(0);
-            Button repair = button(info, blocker.reason + " · 修復", blocker.repair, !busy);
-            repair.setSingleLine(true);
-            repair.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            repair.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
+        if (timed) {
+            remainingDeadline = homeLine(system, "", 12);
+            deadlineWarning = homeLine(system, "即將自動結束並等待定稿", 12);
+            updateDeadline();
         }
-        MaterialButton main = (MaterialButton) button(this, state.phase == Phase.RECORDING ? "結束並送出" : "開始輸入",
-                state.phase == Phase.RECORDING ? Action.FINISH : Action.START,
-                state.phase == Phase.RECORDING || (!busy && state.ready && state.phase != Phase.UNAVAILABLE));
-        main.setIconResource(R.drawable.native_c_mic);
-        LayoutParams mainBounds = new LayoutParams(LayoutParams.MATCH_PARENT, 0, .55f);
-        mainBounds.setMargins(dp(16), dp(8), dp(16), 0);
-        main.setLayoutParams(mainBounds);
-        View space = new View(getContext());
-        addView(space, new LayoutParams(LayoutParams.MATCH_PARENT, dp(16)));
-        Button cancel = button(this, "取消", Action.CANCEL,
-                state.phase == Phase.PREPARING || state.phase == Phase.RECORDING);
-        cancel.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, dp(56)));
+        if (!state.operationStatus.isEmpty()) homeLine(system, state.operationStatus, 14);
+        for (Blocker blocker : state.blockers)
+            button(system, blocker.reason + " · 修復", blocker.repair, !busy);
+
+        LinearLayout words = addCard(info, NativeCStyle.CARD);
+        LinearLayout wordHeading = new LinearLayout(getContext());
+        wordHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        words.addView(wordHeading, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
+        TextView wordTitle = homeLine(wordHeading, busy ? "本次語音 · 尚未送出" : "最近一段轉錄定稿", 12);
+        wordTitle.setLayoutParams(new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
+        Button latest = button(wordHeading, "最近定稿", Action.LATEST, !busy);
+        latest.setTextSize(12);
+        latest.setLayoutParams(new LayoutParams(dp(96), dp(48)));
+        LinearLayout inset = NativeCStyle.card(getContext(), NativeCStyle.LOWEST);
+        words.addView(inset, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        transcript = homeLine(inset, busy ? waitingText(state.phase)
+                : state.latestFinalText.isEmpty() ? "尚無定稿" : state.latestFinalText, 14);
+        transcript.setTag("voice-transcript");
+        transcript.setMaxLines(3);
+        transcript.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout monitor = addCard(info, NativeCStyle.LOWEST);
+        LinearLayout monitorHeading = new LinearLayout(getContext());
+        monitor.addView(monitorHeading, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        TextView volumeTitle = homeLine(monitorHeading, "輸入音量", 10);
+        volumeTitle.setLayoutParams(new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
+        homeLine(monitorHeading, "音量尚未接入 · 靜止示意", 10).setTextColor(NativeCStyle.MUTED);
+        waveform = new LinearLayout(getContext());
+        waveform.setTag("voice-waveform");
+        waveform.setGravity(android.view.Gravity.CENTER);
+        waveform.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        monitor.addView(waveform, new LayoutParams(LayoutParams.MATCH_PARENT, dp(32)));
+        for (int i = 0; i < 32; i++) {
+            View bar = new View(getContext());
+            bar.setBackground(NativeCStyle.rounded(getContext(), i % 4 == 0 ? NativeCStyle.CYAN : NativeCStyle.GREEN, 3));
+            bar.setAlpha(.35f);
+            LayoutParams bounds = new LayoutParams(dp(3), dp(4));
+            bounds.setMargins(dp(1), 0, dp(1), 0);
+            waveform.addView(bar, bounds);
+        }
+
+        LinearLayout dock = new LinearLayout(getContext());
+        dock.setOrientation(VERTICAL);
+        dock.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        android.widget.FrameLayout halo = new android.widget.FrameLayout(getContext());
+        micHalo = halo;
+        android.graphics.drawable.GradientDrawable glow = new android.graphics.drawable.GradientDrawable();
+        glow.setGradientType(android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT);
+        glow.setGradientRadius(dp(72));
+        glow.setColors(new int[]{0x6600F5A0, 0x3300F5A0, 0x0000F5A0});
+        halo.setBackground(glow);
+        dock.addView(halo, new LayoutParams(dp(144), dp(144)));
+        LinearLayout micHost = new LinearLayout(getContext());
+        halo.addView(micHost, new android.widget.FrameLayout.LayoutParams(dp(96), dp(96), android.view.Gravity.CENTER));
+        boolean recording = state.phase == Phase.RECORDING;
+        MaterialButton main = (MaterialButton) button(micHost, recording ? "結束並送出" : "開始輸入",
+                recording ? Action.FINISH : Action.START,
+                recording || (!busy && state.ready && state.phase != Phase.UNAVAILABLE));
+        micButton = main;
+        main.setContentDescription(recording ? "結束並送出" : "開始語音輸入");
+        main.setText(""); // Icon-only control; the TalkBack name and visible hint carry the operation.
+        main.setIconResource(recording ? R.drawable.native_c_stop : R.drawable.native_c_mic);
+        main.setIconSize(dp(38));
+        main.setIconPadding(0);
+        main.setPadding(0, 0, 0, 0);
+        main.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
+        main.setIconTint(android.content.res.ColorStateList.valueOf(NativeCStyle.INK));
+        android.graphics.drawable.GradientDrawable core = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.BL_TR,
+                new int[]{NativeCStyle.GREEN, 0xFF50FFAF, NativeCStyle.CYAN});
+        core.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        core.setStroke(dp(8), NativeCStyle.HIGH);
+        main.setBackgroundTintList(null);
+        main.setBackground(core);
+        main.setAlpha(main.isEnabled() ? 1f : .45f);
+        main.setLayoutParams(new LayoutParams(dp(96), dp(96)));
+        TextView hint = homeLine(dock, mainHint(false), 18);
+        actionHint = hint;
+        hint.setGravity(android.view.Gravity.CENTER);
+        hint.setMaxLines(2);
+        hint.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        hint.setTextColor(NativeCStyle.GREEN);
+        Button cancel = button(dock, "取消", Action.CANCEL,
+                state.phase == Phase.PREPARING || recording);
+        cancelButton = cancel;
+        cancel.setContentDescription("取消語音輸入");
+        cancel.setLayoutParams(new LayoutParams(dp(160), dp(48)));
+        addView(dock, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        LinearLayout tabs = new LinearLayout(getContext());
+        tabs.setBackgroundColor(NativeCStyle.LOW);
+        Button home = button(tabs, "語音輸入", Action.HOME, !busy);
+        Button devices = button(tabs, "裝置連線", Action.CONNECTION, !busy);
+        home.setTextColor(NativeCStyle.GREEN);
+        ((MaterialButton) home).setStrokeWidth(0);
+        ((MaterialButton) home).setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+        ((MaterialButton) home).setIconResource(R.drawable.native_c_mic);
+        ((MaterialButton) devices).setIconResource(R.drawable.native_c_devices);
+        for (Button tab : new Button[]{home, devices}) {
+            ((MaterialButton) tab).setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
+            ((MaterialButton) tab).setIconSize(dp(22));
+            ((MaterialButton) tab).setIconPadding(dp(2));
+            ((MaterialButton) tab).setIconTint(android.content.res.ColorStateList.valueOf(tab == home ? NativeCStyle.GREEN : NativeCStyle.MUTED));
+            tab.setTextSize(10);
+        }
+        for (Button tab : new Button[]{home, devices}) tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
+        addView(tabs, new LayoutParams(LayoutParams.MATCH_PARENT, dp(64)));
+        requestFocus();
     }
     private String phaseText(Phase phase) {
         switch (phase) {
@@ -157,6 +301,8 @@ public final class NativeCScreen extends LinearLayout {
     }
     private void showPanel(Action panel) {
         this.panel = panel;
+        transcript = null;
+        waveform = null;
         removeAllViews();
         ScrollView scroll = new ScrollView(getContext());
         LinearLayout content = new LinearLayout(getContext());
@@ -221,17 +367,81 @@ public final class NativeCScreen extends LinearLayout {
         }
         button(this, "返回主畫面", Action.HOME, true);
     }
-    private void homeLine(LinearLayout parent, String value, int height, int size) {
+    private LinearLayout addCard(LinearLayout parent, int color) {
+        LinearLayout card = NativeCStyle.card(getContext(), color);
+        LayoutParams bounds = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        bounds.bottomMargin = dp(16);
+        parent.addView(card, bounds);
+        return card;
+    }
+    private TextView homeLine(LinearLayout parent, String value, int size) {
         TextView view = new TextView(getContext());
         view.setText(value);
-        view.setMaxLines(size >= 22 ? 2 : 1);
-        view.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        view.setTextAppearance(size >= 22 ? com.google.android.material.R.style.TextAppearance_Material3_TitleLarge
-                : com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
-        view.setTextColor(MaterialColors.getColor(this, size >= 22
-                ? com.google.android.material.R.attr.colorOnSurface : com.google.android.material.R.attr.colorOnSurfaceVariant));
-        view.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        parent.addView(view, new LayoutParams(LayoutParams.MATCH_PARENT, Math.max(dp(height), Math.round(view.getTextSize() * (size >= 22 ? 2.5f : 1.5f)))));
+        view.setTextSize(size);
+        view.setTextColor(NativeCStyle.TEXT);
+        view.setPadding(0, dp(3), 0, dp(3));
+        parent.addView(view, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        return view;
+    }
+    /** A clock tick must not replace the controls underneath an in-flight tap. */
+    private boolean sameTimerPresentation(State next) {
+        if (state == null || state.phase != next.phase || state.ready != next.ready
+                || state.manualReady != next.manualReady || state.connected != next.connected
+                || !state.computer.equals(next.computer) || !state.channel.equals(next.channel)
+                || !state.latestFinalText.equals(next.latestFinalText)
+                || !state.operationStatus.equals(next.operationStatus) || state.blockers.size() != next.blockers.size()) return false;
+        for (int i = 0; i < state.blockers.size(); i++) {
+            Blocker previous = state.blockers.get(i), current = next.blockers.get(i);
+            if (previous.repair != current.repair || !previous.reason.equals(current.reason)) return false;
+        }
+        return true;
+    }
+    private void updateDeadline() {
+        remainingDeadline.setText("剩餘期限 " + state.remainingSeconds + " 秒（包含準備時間）");
+        deadlineWarning.setVisibility(state.remainingSeconds <= 5 ? View.VISIBLE : View.GONE);
+    }
+    private static boolean isBusy(Phase phase) {
+        return phase == Phase.PREPARING || phase == Phase.RECORDING || phase == Phase.FINALIZING || phase == Phase.SENDING;
+    }
+    private String mainHint(boolean compact) {
+        if (state.phase == Phase.RECORDING) return compact ? "點按以結束" : "按一下結束並送出";
+        if (isBusy(state.phase)) return "請稍候";
+        if (!state.ready || state.phase == Phase.UNAVAILABLE) return compact ? "請先修復條件" : "請先修復必要條件";
+        return compact ? "點按以開始" : "按一下開始說話";
+    }
+    private String waitingText(Phase phase) {
+        switch (phase) {
+            case PREPARING: return "麥克風準備中，請稍候";
+            case RECORDING: return "等待辨識文字";
+            case FINALIZING: return "正在等待有效的轉錄定稿";
+            case SENDING: return "正在傳送轉錄定稿";
+            default: return "尚無辨識文字";
+        }
+    }
+    @Override protected void onMeasure(int widthSpec, int heightSpec) {
+        if (panel == null && micHalo != null) {
+            boolean compact = View.MeasureSpec.getSize(heightSpec) - getPaddingTop() - getPaddingBottom() < dp(620)
+                    || getResources().getConfiguration().fontScale >= 1.5f;
+            int haloSize = dp(compact ? 72 : 144);
+            micHalo.getLayoutParams().width = haloSize;
+            micHalo.getLayoutParams().height = haloSize;
+            int micSize = dp(compact ? 64 : 96);
+            android.widget.FrameLayout.LayoutParams host = (android.widget.FrameLayout.LayoutParams) ((View) micButton.getParent()).getLayoutParams();
+            host.width = micSize; host.height = micSize;
+            micButton.getLayoutParams().width = micSize; micButton.getLayoutParams().height = micSize;
+            micButton.setIconSize(dp(compact ? 28 : 38));
+            brandSubtitle.setVisibility(compact ? View.GONE : View.VISIBLE);
+            actionHint.setTextSize(compact ? 14 : 18);
+            actionHint.setText(mainHint(compact));
+            cancelButton.getLayoutParams().height = dp(getResources().getConfiguration().fontScale >= 1.5f ? 64 : 48);
+        }
+        int contentWidth = Math.min(dp(560), Math.max(0, View.MeasureSpec.getSize(widthSpec) - getPaddingLeft() - getPaddingRight()));
+        for (int i = 0; i < getChildCount(); i++) {
+            LayoutParams bounds = (LayoutParams) getChildAt(i).getLayoutParams();
+            bounds.width = contentWidth;
+            bounds.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        }
+        super.onMeasure(widthSpec, heightSpec);
     }
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private TextView text(LinearLayout parent, String value) {
