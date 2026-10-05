@@ -91,14 +91,27 @@ public final class NativeCScreen extends LinearLayout {
     private Button cancelButton;
     private TextView remainingDeadline;
     private TextView deadlineWarning;
-    /** Update live readiness without clearing a typed key or diagnostic draft. */
+    private TextView panelPhase, panelFeedback, panelComputer, panelChannel, panelConnection;
+    private LinearLayout panelRepairs;
+    /** Refresh feedback in place: never replace a focused key or diagnostic draft. */
     public void update(State state) {
         this.state = Objects.requireNonNull(state);
-        if (panel == Action.CONNECTION) showPanel(panel);
-        else if (panel == Action.DIAGNOSTICS) {
-            View send = findViewWithTag(Action.MANUAL_SEND);
-            if (send != null) send.setEnabled(state.manualReady);
+        if (isBusy(state.phase)) { render(state); return; }
+        if (panel == null) return;
+        panelPhase.setText(panel == Action.LATEST ? "僅查看本機最近一段定稿" : phaseText(state.phase));
+        panelFeedback.setText(panel == Action.LATEST ? "" : state.operationStatus);
+        panelFeedback.setVisibility(state.operationStatus.isEmpty() || panel == Action.LATEST ? GONE : VISIBLE);
+        panelRepairs.removeAllViews();
+        for (Blocker blocker : state.blockers) {
+            if (blocker.repair == panel) text(panelRepairs, blocker.reason);
+            else button(panelRepairs, blocker.reason + " · 修復", blocker.repair, true);
         }
+        if (panelComputer != null) panelComputer.setText(state.computer);
+        if (panelChannel != null) panelChannel.setText("目前通道：" + (state.channel.isEmpty() ? "尚未選擇" : state.channel));
+        if (panelConnection != null) panelConnection.setText(state.connected
+                ? "電腦已連線 · 不代表輸入就緒" : "電腦未連線 · 不代表輸入就緒");
+        View send = findViewWithTag(Action.MANUAL_SEND);
+        if (send != null) send.setEnabled(state.manualReady);
     }
     public NativeCScreen(Context context, Actions actions) {
         super(new ContextThemeWrapper(context, R.style.Theme_TalkToAgent_NativeC));
@@ -151,7 +164,15 @@ public final class NativeCScreen extends LinearLayout {
         connected.setTextColor(state.connected ? NativeCStyle.GREEN : NativeCStyle.MUTED);
         connected.setContentDescription("電腦連線：" + (state.connected ? "已連線" : "未連線"));
         Button settings = button(header, "設定", Action.SETTINGS, !busy);
-        settings.setLayoutParams(new LayoutParams(dp(64), LayoutParams.MATCH_PARENT));
+        settings.setContentDescription("設定");
+        settings.setText("");
+        ((MaterialButton) settings).setIconResource(R.drawable.native_c_settings);
+        ((MaterialButton) settings).setIconSize(dp(24));
+        ((MaterialButton) settings).setIconPadding(0);
+        ((MaterialButton) settings).setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
+        ((MaterialButton) settings).setIconTint(android.content.res.ColorStateList.valueOf(NativeCStyle.MUTED));
+        settings.setPadding(0, 0, 0, 0);
+        settings.setLayoutParams(new LayoutParams(dp(48), LayoutParams.MATCH_PARENT));
         addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(64)));
 
         // Only information scrolls. Primary, cancel and tabs stay above the safe area.
@@ -270,6 +291,9 @@ public final class NativeCScreen extends LinearLayout {
         Button home = button(tabs, "語音輸入", Action.HOME, !busy);
         Button devices = button(tabs, "裝置連線", Action.CONNECTION, !busy);
         home.setTextColor(NativeCStyle.GREEN);
+        home.setSelected(true);
+        devices.setTextColor(NativeCStyle.MUTED);
+        devices.setSelected(false);
         ((MaterialButton) home).setStrokeWidth(0);
         ((MaterialButton) home).setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         ((MaterialButton) home).setIconResource(R.drawable.native_c_mic);
@@ -304,7 +328,9 @@ public final class NativeCScreen extends LinearLayout {
         transcript = null;
         waveform = null;
         removeAllViews();
+        panelComputer = panelChannel = panelConnection = null;
         ScrollView scroll = new ScrollView(getContext());
+        scroll.setFillViewport(true);
         LinearLayout content = new LinearLayout(getContext());
         content.setOrientation(VERTICAL);
         content.setPadding(dp(16), dp(16), dp(16), dp(16));
@@ -314,58 +340,101 @@ public final class NativeCScreen extends LinearLayout {
                 : panel == Action.LATEST ? "最近定稿" : panel == Action.KEY ? "Gemini 金鑰管理"
                 : panel == Action.PERMISSION ? "麥克風權限管理" : "診斷／手動測試");
         heading.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall);
-        text(content, phaseText(state.phase));
-        if (!state.operationStatus.isEmpty()) text(content, state.operationStatus);
-        for (Blocker blocker : state.blockers)
-            button(content, blocker.reason + " · 修復", blocker.repair, true);
+        heading.setTextColor(NativeCStyle.GREEN);
+        heading.setAccessibilityHeading(true);
+        LinearLayout feedback = addCard(content, NativeCStyle.LOW);
+        homeLine(feedback, "目前狀態", 12).setTextColor(NativeCStyle.MUTED);
+        panelPhase = text(feedback, "");
+        panelFeedback = text(feedback, "");
+        panelFeedback.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        panelRepairs = new LinearLayout(getContext());
+        panelRepairs.setOrientation(VERTICAL);
+        feedback.addView(panelRepairs);
+        LinearLayout details = addCard(content, NativeCStyle.CARD);
         switch (panel) {
             case CONNECTION:
-                text(content, state.computer);
-                text(content, "QR 邀請不等於應用授權；藍牙系統配對需另行完成。通道由使用者選擇，不自動切換或補送。");
-                button(content, "掃描 QR 邀請", Action.SCAN_QR, true);
-                button(content, "恢復既有應用授權", Action.RECOVER_AUTHORIZATION, true);
-                button(content, "通道：藍牙", Action.BLUETOOTH, true);
-                button(content, "通道：Wi-Fi", Action.WIFI, true);
-                button(content, "主動中斷連線", Action.DISCONNECT, true);
+                panelComputer = text(details, state.computer);
+                panelConnection = text(details, "");
+                panelChannel = text(details, "");
+                panelChannel.setTextColor(NativeCStyle.CYAN);
+                text(details, "連線邀請是短效單次 QR；掃描成功不等於已取得應用授權，也不取代系統藍牙配對。");
+                button(details, "掃描 QR 邀請", Action.SCAN_QR, true);
+                button(details, "恢復既有應用授權", Action.RECOVER_AUTHORIZATION, true);
+                LinearLayout channels = addCard(content, NativeCStyle.LOWEST);
+                text(channels, "明確選擇通道 · 不自動切換或補送");
+                button(channels, "通道：藍牙", Action.BLUETOOTH, true);
+                button(channels, "通道：Wi-Fi", Action.WIFI, true);
+                button(channels, "主動中斷連線", Action.DISCONNECT, true);
                 break;
             case SETTINGS:
-                button(content, "Gemini 金鑰", Action.KEY, true);
-                button(content, "麥克風權限", Action.PERMISSION, true);
-                button(content, "診斷／手動測試", Action.DIAGNOSTICS, true);
+                text(details, "語音輸入的必要條件與低頻工具");
+                button(details, "Gemini 金鑰", Action.KEY, true);
+                button(details, "麥克風權限", Action.PERMISSION, true);
+                button(details, "診斷／手動測試", Action.DIAGNOSTICS, true);
                 break;
             case LATEST:
-                text(content, "最近一段轉錄定稿（無持久歷史）");
-                text(content, state.latestFinalText.isEmpty() ? "尚無定稿" : state.latestFinalText);
-                Button copy = button(content, "複製定稿", Action.COPY, !state.latestFinalText.isEmpty());
+                text(details, "最近一段轉錄定稿（無持久歷史）");
+                text(details, "查看與複製不會再次傳送；定稿不代表目標程式已接受文字。");
+                text(details, state.latestFinalText.isEmpty() ? "尚無定稿" : state.latestFinalText);
+                Button copy = button(details, "複製定稿", Action.COPY, !state.latestFinalText.isEmpty());
                 copy.setOnClickListener(v -> actions.accept(new Event(Action.COPY, state.latestFinalText)));
                 break;
             case DIAGNOSTICS:
-                text(content, state.computer);
-                text(content, "手動測試只送出一次；連線未就緒或操作進行中不送出。");
-                TextInputEditText input = input(content, "手動測試文字");
-                Button send = button(content, "送出手動測試", Action.MANUAL_SEND, state.manualReady);
+                panelComputer = text(details, state.computer);
+                text(details, "手動測試只送出一次；連線未就緒或操作進行中不送出。結果不會成為語音定稿，也不自動重送。");
+                TextInputEditText input = input(details, "手動測試文字");
+                input.setMinLines(3);
+                input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+                input.setSaveEnabled(false);
+                Button send = button(details, "送出手動測試", Action.MANUAL_SEND, state.manualReady);
                 send.setOnClickListener(v -> actions.accept(new Event(Action.MANUAL_SEND, input.getText().toString())));
                 break;
             case KEY:
-                text(content, "由主程式安全儲存金鑰；畫面不顯示已存金鑰。修復後仍需主動開始。");
-                TextInputEditText key = input(content, "新金鑰（不顯示已存金鑰）");
+                text(details, "金鑰只由主程式安全儲存，已存金鑰不回填。輸入新的金鑰可取代原值；清除後需重新設定。修復後仍需主動開始。");
+                TextInputEditText key = input(details, "新金鑰（不顯示已存金鑰）");
                 key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
                 key.setSaveEnabled(false);
-                Button save = button(content, "儲存金鑰", Action.SAVE_KEY, true);
+                Button save = button(details, "儲存金鑰", Action.SAVE_KEY, true);
                 save.setOnClickListener(v -> {
                     String payload = key.getText().toString();
                     key.setText("");
                     actions.accept(new Event(Action.SAVE_KEY, payload));
                 });
-                button(content, "清除金鑰", Action.CLEAR_KEY, true);
+                Button clear = button(details, "清除金鑰", Action.CLEAR_KEY, true);
+                clear.setOnClickListener(v -> { key.setText(""); actions.accept(new Event(Action.CLEAR_KEY, "")); });
                 break;
             case PERMISSION:
-                text(content, "由主程式處理權限請求；修復後仍需主動開始。");
-                button(content, "請求麥克風權限", Action.REQUEST_PERMISSION, true);
+                text(details, "麥克風只在主動開始後收音。權限請求使用 Android 系統介面；若已永久拒絕，請在應用設定允許麥克風。允許或返回 App 後不自動收音。");
+                button(details, "請求麥克風權限", Action.REQUEST_PERMISSION, true);
                 break;
             default: break;
         }
-        button(this, "返回主畫面", Action.HOME, true);
+        update(state);
+        LinearLayout navigation = new LinearLayout(getContext());
+        navigation.setOrientation(VERTICAL);
+        navigation.setBackgroundColor(NativeCStyle.LOW);
+        navigation.setPadding(dp(16), dp(4), dp(16), dp(4));
+        Button back = button(navigation, "返回主畫面", Action.HOME, true);
+        if (panel == Action.CONNECTION) {
+            navigation.setOrientation(HORIZONTAL);
+            back.setContentDescription("語音輸入，返回主畫面");
+            Button current = button(navigation, "裝置連線", Action.CONNECTION, true);
+            for (Button tab : new Button[]{back, current}) {
+                boolean selected = tab == current;
+                tab.setSelected(selected);
+                tab.setTextColor(selected ? NativeCStyle.GREEN : NativeCStyle.MUTED);
+                MaterialButton material = (MaterialButton) tab;
+                material.setStrokeWidth(0);
+                material.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+                material.setIconResource(selected ? R.drawable.native_c_devices : R.drawable.native_c_mic);
+                material.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_TOP);
+                material.setIconTint(android.content.res.ColorStateList.valueOf(selected ? NativeCStyle.GREEN : NativeCStyle.MUTED));
+                material.setIconPadding(dp(2));
+                tab.setTextSize(10);
+                tab.setLayoutParams(new LayoutParams(0, dp(64), 1));
+            }
+        }
+        addView(navigation, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
     private LinearLayout addCard(LinearLayout parent, int color) {
         LinearLayout card = NativeCStyle.card(getContext(), color);

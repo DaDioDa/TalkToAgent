@@ -21,15 +21,46 @@ public final class InvitationScanActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
-        TextView instructions = new TextView(this);
-        instructions.setText("掃描 Windows 終端的 TalkToAgent 有效邀請。不要分享 QR；不會儲存 QR 圖片。若無法辨識，請在電腦放大終端或重顯示邀請。");
-        content.addView(instructions);
-        scanner = new DecoratedBarcodeView(this); scanner.setSaveEnabled(false);
+        android.content.Context themed = new androidx.appcompat.view.ContextThemeWrapper(this, R.style.Theme_TalkToAgent_NativeC);
+        LinearLayout root = new LinearLayout(themed);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        root.setBackgroundColor(NativeCStyle.SURFACE);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets safe = insets.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
+            root.setPadding(safe.left, safe.top, safe.right, safe.bottom); return insets;
+        });
+        android.widget.ScrollView scroll = new android.widget.ScrollView(themed);
+        scroll.setFillViewport(true);
+        LinearLayout content = NativeCStyle.card(themed, NativeCStyle.SURFACE);
+        scroll.addView(content);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView title = new TextView(themed);
+        title.setText("掃描連線邀請"); title.setTextSize(24); title.setTextColor(NativeCStyle.GREEN);
+        title.setAccessibilityHeading(true); content.addView(title);
+        LinearLayout explanation = NativeCStyle.card(themed, NativeCStyle.LOW);
+        LinearLayout.LayoutParams cardBounds = new LinearLayout.LayoutParams(-1, -2);
+        cardBounds.setMargins(0, NativeCStyle.dp(this, 16), 0, NativeCStyle.dp(this, 16));
+        content.addView(explanation, cardBounds);
+        TextView instructions = new TextView(themed);
+        instructions.setTextSize(16); instructions.setTextColor(NativeCStyle.TEXT);
+        instructions.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        instructions.setText("掃描 Windows 終端的 TalkToAgent 有效邀請。不要分享 QR；不會儲存 QR 圖片。掃描成功不等於應用授權或系統藍牙配對完成。若無法辨識，請在電腦放大終端或重顯示邀請。");
+        explanation.addView(instructions);
+        scanner = new DecoratedBarcodeView(themed); scanner.setSaveEnabled(false);
+        scanner.setContentDescription("連線邀請 QR 相機取景區");
+        scanner.setStatusText("將有效連線邀請置於框內");
         scanner.getBarcodeView().setDecoderFactory(new DefaultDecoderFactory(Collections.singletonList(BarcodeFormat.QR_CODE)));
-        content.addView(scanner, new LinearLayout.LayoutParams(-1, 0, 1));
-        Button cancel = new Button(this); cancel.setText("取消掃描"); cancel.setOnClickListener(v -> finish()); content.addView(cancel);
-        setContentView(content);
+        content.addView(scanner, new LinearLayout.LayoutParams(-1, NativeCStyle.dp(this, 280)));
+        Button cancel = (Button) android.view.LayoutInflater.from(themed).inflate(R.layout.native_c_outlined_button, root, false);
+        cancel.setText("取消掃描"); cancel.setContentDescription("取消掃描並返回裝置連線");
+        cancel.setMinHeight(NativeCStyle.dp(this, 48)); cancel.setOnClickListener(v -> finish()); root.addView(cancel);
+        root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            int width = Math.min(r - l - root.getPaddingLeft() - root.getPaddingRight(), NativeCStyle.dp(this, 560));
+            for (android.view.View child : new android.view.View[]{scroll, cancel})
+                if (child.getLayoutParams().width != width) { child.getLayoutParams().width = width; child.requestLayout(); }
+        });
+        setContentView(root);
         scanner.decodeSingle(result -> {
             if (!foreground || delivered) return;
             String uri = result.getText();
