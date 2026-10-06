@@ -1,0 +1,50 @@
+[
+    {
+        "agentId":  "b829459c-778f-414",
+        "source":  "complete execution transcript assistant metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "3ef655db-3f79-457",
+        "source":  "complete execution transcript assistant metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "31518f3d-860a-40b",
+        "source":  "complete execution transcript assistant metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    },
+    {
+        "agentId":  "2652e367-0851-4fe",
+        "source":  "complete execution transcript assistant metadata",
+        "configurations":  [
+                               {
+                                   "provider":  "openai-codex",
+                                   "model":  "gpt-6.1-sol",
+                                   "effort":  "medium"
+                               }
+                           ],
+        "passed":  true
+    }
+]

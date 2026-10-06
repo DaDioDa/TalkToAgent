@@ -4,6 +4,8 @@
 
 > 連線設定改為 App 內掃描短效 QR 邀請，並安全保存持久應用授權；不再手動輸入 IP／port／臨時碼或選擇已配對裝置。藍牙保留 `connectedDevice` 前景服務。舊版曾在已配對 SM-F7410 與 Windows 完成一次使用者確認的語音貼上；此證據不涵蓋新的 QR／未配對續接。新流程與既有鎖屏 30 分鐘等未完成的實機項目，不能以建置或 mock 成功替代，見 [QR 驗收](qr-acceptance.md) 及 [藍牙增量規格](spec-bluetooth-input.md)。
 
+更新手機上**既有 App** 請使用 [Android 安全更新入口](../tools/android/README.md)，依入口說明選擇檢查預覽或更新；預覽不代表已安裝。以下並存測試安裝不是既有 App 更新。
+
 若手機已有不同簽章的同名 App，不要直接卸載以免遺失設定與 Gemini 金鑰。可從專案根目錄執行 `./gradlew -PbluetoothTestApp=true :app:assembleDebug`，將產生的 `app/build/outputs/apk/debug/app-debug.apk` 安裝為獨立的 `com.example.talktoagent.bluetoothdebug` 測試 App；此版本與原 App 的資料互不共用，須另行設定金鑰。若要跑裝置測試，先連接已授權 ADB 的手機，再執行 `./gradlew -PbluetoothTestApp=true :app:connectedDebugAndroidTest --no-configuration-cache`。未加 `-PbluetoothTestApp=true` 的一般建置仍使用原套件名。
 
 Wi-Fi 保留每連線傳送一次文字的行為；連線及手動文字示範見 [Windows Receiver](windows-receiver.md)。先在手機設定 Gemini 個人 API key（輸入後按「儲存」，欄位會清空；留空儲存會清除金鑰），再在 App 內掃描 Windows 終端邀請。藍牙未系統配對時依兩端系統確認完成後續接；取消停止並重掃，過期需新邀請。App／Receiver 重啟後可選已授權通道按「連線」，不會自動連線。金鑰僅在手機以 Android Keystore AES-GCM 加密儲存，不送給 Windows Receiver，也不寫入日誌／APK 原始常數／備份；重裝後需要重新輸入。手機直接透過 TLS 連接 Gemini。
