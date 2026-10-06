@@ -33,7 +33,9 @@ function render() {
   const status = statuses[state];
   element('status-symbol').textContent = status[0];
   element('status-title').textContent = status[1];
-  element('status-detail').textContent = status[2];
+  element('status-detail').textContent = state === 'recording' && variant === 'C'
+    ? '再點一下結束，自動送往電腦。\n底部取消列只會丟棄本次錄音。'
+    : status[2];
   element('haptic-cue').textContent = hapticCue;
   element('connection-label').textContent = `書桌電腦 · ${connected ? '已連線' : '未連線'}`;
   element('connection-dot').textContent = connected ? '●' : '○';

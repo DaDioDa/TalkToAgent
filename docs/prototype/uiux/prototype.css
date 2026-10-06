@@ -34,12 +34,11 @@ h1 { font-size: 25px; margin: 16px 0 10px; font-weight: 600; }
 .phone[data-variant="B"] .action-area { display: grid; grid-template-columns: 1fr 76px; gap: 12px; padding: 16px 14px 22px; background: #ddd; border-top: 1px solid #aaa; }
 .phone[data-variant="B"] .primary { min-height: 100px; }
 .phone[data-variant="B"] .action-icon, .phone[data-variant="B"] #primary-hint { display: none; }
-/* C: lower-half surface, with cancel OUTSIDE the primary target, not overlaid. */
-.phone[data-variant="C"] .action-area { height: 48%; min-height: 220px; display: grid; grid-template-columns: 1fr 88px; grid-template-rows: 1fr 68px; background: #e2e2e2; gap: 12px; padding: 12px; border-top: 1px solid #aaa; }
-.phone[data-variant="C"] .primary { grid-column: 1 / -1; grid-row: 1 / -1; border-radius: 12px; padding-bottom: 72px; }
-.phone[data-variant="C"] .cancel { grid-column: 2; grid-row: 2; z-index: 1; }
-/* Clip the touch surface around the distinct cancel corner; no overlapping hit target. */
-.phone[data-variant="C"] .primary { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 80px), calc(100% - 100px) calc(100% - 80px), calc(100% - 100px) 100%, 0 100%); }
+/* C: large upper touch surface, separate edge-to-edge cancellation strip at the bottom. */
+.phone[data-variant="C"] .action-area { height: 48%; min-height: 220px; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 68px; background: #e2e2e2; gap: 12px; border-top: 1px solid #aaa; }
+.phone[data-variant="C"] .primary { grid-column: 1; grid-row: 1; border-radius: 0; border: 0; padding: 12px; }
+.phone[data-variant="C"] .cancel { grid-column: 1; grid-row: 2; border-radius: 0; border: 0; border-top: 1px solid #aaa; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.phone[data-variant="C"] .cancel br { display: none; }
 .instrumentation { margin-top: 14px; font-size: 12px; }
 details { border: 1px dashed #999; border-radius: 10px; background: #f5f5f5; padding: 12px; }
 summary { cursor: pointer; min-height: 32px; padding: 5px 0; font-weight: 600; }
